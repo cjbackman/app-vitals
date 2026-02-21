@@ -8,6 +8,11 @@ export { AppNotFoundError, StoreScraperError };
 
 const IOS_STORE_HOSTNAMES = ["apps.apple.com", "itunes.apple.com"];
 
+/**
+ * Fetch iOS app metadata from the App Store scraper.
+ * Use this function directly in tests — it has no caching dependency.
+ * Use `getIosApp` (below) in production code — it wraps this with unstable_cache.
+ */
 export async function fetchIosApp(
   appId: string,
   country = "us"
@@ -50,6 +55,11 @@ export async function fetchIosApp(
   };
 }
 
+/**
+ * Cached wrapper around fetchIosApp. Use this in route handlers.
+ * unstable_cache automatically includes function arguments (appId, country)
+ * in the cache key — the string array is a tag prefix for revalidateTag().
+ */
 export const getIosApp = unstable_cache(
   fetchIosApp,
   ["ios-app"],

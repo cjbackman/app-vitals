@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-interface SearchParams {
+export interface SearchParams {
   iosId: string;
   androidId: string;
 }

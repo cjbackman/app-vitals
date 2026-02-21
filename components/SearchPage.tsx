@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AppSearch from "@/components/AppSearch";
+import AppSearch, { type SearchParams } from "@/components/AppSearch";
 import AppCard from "@/components/AppCard";
 import type { AppData, ApiError } from "@/types/app-data";
 
@@ -14,13 +14,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
 
-  async function handleSearch({
-    iosId,
-    androidId,
-  }: {
-    iosId: string;
-    androidId: string;
-  }) {
+  async function handleSearch({ iosId, androidId }: SearchParams) {
     setLoading(true);
     setResults(null);
 
@@ -32,12 +26,12 @@ export default function SearchPage() {
         iosId
           ? fetch(`/api/ios?appId=${encodeURIComponent(iosId)}`, {
               signal: controller.signal,
-            }).then((r) => r.json())
+            }).then((r) => r.json() as Promise<AppData | ApiError>)
           : Promise.resolve(null),
         androidId
           ? fetch(`/api/android?appId=${encodeURIComponent(androidId)}`, {
               signal: controller.signal,
-            }).then((r) => r.json())
+            }).then((r) => r.json() as Promise<AppData | ApiError>)
           : Promise.resolve(null),
       ]);
 

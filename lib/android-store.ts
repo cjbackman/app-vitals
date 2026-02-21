@@ -8,6 +8,11 @@ export { AppNotFoundError, StoreScraperError };
 
 const ANDROID_STORE_HOSTNAMES = ["play.google.com"];
 
+/**
+ * Fetch Android app metadata from the Google Play scraper.
+ * Use this function directly in tests — it has no caching dependency.
+ * Use `getAndroidApp` (below) in production code — it wraps this with unstable_cache.
+ */
 export async function fetchAndroidApp(
   appId: string,
   country = "us"
@@ -45,6 +50,11 @@ export async function fetchAndroidApp(
   };
 }
 
+/**
+ * Cached wrapper around fetchAndroidApp. Use this in route handlers.
+ * unstable_cache automatically includes function arguments (appId, country)
+ * in the cache key — the string array is a tag prefix for revalidateTag().
+ */
 export const getAndroidApp = unstable_cache(
   fetchAndroidApp,
   ["android-app"],

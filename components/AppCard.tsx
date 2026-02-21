@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { isApiError } from "@/types/app-data";
 import type { AppData, ApiError } from "@/types/app-data";
 
 function AppleIcon() {
@@ -27,7 +28,10 @@ const STORE_ICONS = {
 
 function formatPrice(price: AppData["price"]): string {
   if (price.type === "free") return "Free";
-  return `$${price.amount.toFixed(2)}`;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: price.currency,
+  }).format(price.amount);
 }
 
 function formatDate(isoString: string): string {
@@ -81,7 +85,7 @@ export default function AppCard({ store, data, loading }: AppCardProps) {
   if (!data) return null;
 
   // Error state
-  if ("code" in data) {
+  if (isApiError(data)) {
     const messages: Record<ApiError["code"], string> = {
       APP_NOT_FOUND: "App not found. Check the ID and try again.",
       INVALID_APP_ID: "Invalid app ID format.",
@@ -112,7 +116,6 @@ export default function AppCard({ store, data, loading }: AppCardProps) {
           width={64}
           height={64}
           className="rounded-2xl flex-shrink-0"
-          unoptimized
         />
         <div>
           <h2 className="font-semibold text-gray-900 text-lg leading-tight">
