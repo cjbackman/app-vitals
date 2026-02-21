@@ -1,21 +1,27 @@
 "use client";
 
-import { useState } from "react";
-
 export interface SearchParams {
   iosId: string;
   androidId: string;
 }
 
 interface AppSearchProps {
+  iosId: string;
+  androidId: string;
+  onIosIdChange: (value: string) => void;
+  onAndroidIdChange: (value: string) => void;
   onSearch: (params: SearchParams) => void;
   loading: boolean;
 }
 
-export default function AppSearch({ onSearch, loading }: AppSearchProps) {
-  const [iosId, setIosId] = useState("");
-  const [androidId, setAndroidId] = useState("");
-
+export default function AppSearch({
+  iosId,
+  androidId,
+  onIosIdChange,
+  onAndroidIdChange,
+  onSearch,
+  loading,
+}: AppSearchProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!iosId.trim() && !androidId.trim()) return;
@@ -36,7 +42,7 @@ export default function AppSearch({ onSearch, loading }: AppSearchProps) {
             id="ios-id"
             type="text"
             value={iosId}
-            onChange={(e) => setIosId(e.target.value)}
+            onChange={(e) => onIosIdChange(e.target.value)}
             placeholder="e.g. com.spotify.client"
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
@@ -52,7 +58,7 @@ export default function AppSearch({ onSearch, loading }: AppSearchProps) {
             id="android-id"
             type="text"
             value={androidId}
-            onChange={(e) => setAndroidId(e.target.value)}
+            onChange={(e) => onAndroidIdChange(e.target.value)}
             placeholder="e.g. com.spotify.music"
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />

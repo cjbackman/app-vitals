@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppSearch, { type SearchParams } from "@/components/AppSearch";
+import AppPicker from "@/components/AppPicker";
 import AppCard from "@/components/AppCard";
+import { PRESET_APPS, type PresetApp } from "@/components/preset-apps";
 import type { AppData, ApiError } from "@/types/app-data";
 
 interface Results {
@@ -10,15 +12,29 @@ interface Results {
   android: AppData | ApiError | null;
 }
 
+const DEFAULT = PRESET_APPS[0];
+
 export default function SearchPage() {
+  const [iosId, setIosId] = useState(DEFAULT.iosId);
+  const [androidId, setAndroidId] = useState(DEFAULT.androidId);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
 
+  // Abort any in-flight request when a new search starts.
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Derive active preset — no need to store it separately.
+  const selectedPreset: PresetApp | null =
+    PRESET_APPS.find((p) => p.iosId === iosId && p.androidId === androidId) ?? null;
+
   async function handleSearch({ iosId, androidId }: SearchParams) {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     setResults(null);
 
-    const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
     try {
@@ -35,6 +51,9 @@ export default function SearchPage() {
           : Promise.resolve(null),
       ]);
 
+      // Ignore results if this request was superseded by a newer one.
+      if (controller.signal.aborted) return;
+
       setResults({
         ios:
           fetches[0].status === "fulfilled"
@@ -47,15 +66,38 @@ export default function SearchPage() {
       });
     } finally {
       clearTimeout(timeoutId);
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
+
+  function handleSelect(preset: PresetApp) {
+    // Re-clicking the active preset is a no-op — avoids a disruptive loading flash.
+    if (preset === selectedPreset) return;
+    setIosId(preset.iosId);
+    setAndroidId(preset.androidId);
+    handleSearch({ iosId: preset.iosId, androidId: preset.androidId });
+  }
+
+  useEffect(() => {
+    // Auto-search the default preset on mount.
+    // handleSearch is intentionally omitted from deps: this must run exactly once.
+    handleSearch({ iosId: DEFAULT.iosId, androidId: DEFAULT.androidId });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showResults = loading || results !== null;
 
   return (
     <div className="space-y-8">
-      <AppSearch onSearch={handleSearch} loading={loading} />
+      <AppPicker selectedPreset={selectedPreset} onSelect={handleSelect} />
+
+      <AppSearch
+        iosId={iosId}
+        androidId={androidId}
+        onIosIdChange={setIosId}
+        onAndroidIdChange={setAndroidId}
+        onSearch={handleSearch}
+        loading={loading}
+      />
 
       {showResults && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
