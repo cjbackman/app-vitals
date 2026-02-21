@@ -22,9 +22,15 @@ export async function fetchIosApp(
   appId: string,
   country = "us"
 ): Promise<AppData> {
+  // Numeric strings (e.g. "829587759") are App Store numeric IDs — pass as id.
+  // Everything else (e.g. "com.spotify.client") is a bundle ID — pass as appId.
+  const opts = /^\d+$/.test(appId)
+    ? { id: parseInt(appId, 10), country }
+    : { appId, country };
+
   let raw;
   try {
-    raw = await store.app({ appId, country });
+    raw = await store.app(opts);
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message.toLowerCase() : String(err);
