@@ -25,3 +25,8 @@ export interface ApiError {
   error: string;
   code: "APP_NOT_FOUND" | "SCRAPER_ERROR" | "INVALID_APP_ID";
 }
+
+/** Type guard that narrows AppData | ApiError to ApiError. */
+export function isApiError(data: AppData | ApiError): data is ApiError {
+  return "error" in data && "code" in data;
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AppSearch from "@/components/AppSearch";
+import AppSearch, { type SearchParams } from "@/components/AppSearch";
 import AppCard from "@/components/AppCard";
 import type { AppData, ApiError } from "@/types/app-data";
 
@@ -14,41 +14,41 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
 
-  async function handleSearch({
-    iosId,
-    androidId,
-  }: {
-    iosId: string;
-    androidId: string;
-  }) {
+  async function handleSearch({ iosId, androidId }: SearchParams) {
     setLoading(true);
     setResults(null);
 
-    const fetches = await Promise.allSettled([
-      iosId
-        ? fetch(`/api/ios?appId=${encodeURIComponent(iosId)}`).then((r) =>
-            r.json()
-          )
-        : Promise.resolve(null),
-      androidId
-        ? fetch(`/api/android?appId=${encodeURIComponent(androidId)}`).then(
-            (r) => r.json()
-          )
-        : Promise.resolve(null),
-    ]);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-    setResults({
-      ios:
-        fetches[0].status === "fulfilled"
-          ? fetches[0].value
-          : ({ error: "Request failed", code: "SCRAPER_ERROR" } as ApiError),
-      android:
-        fetches[1].status === "fulfilled"
-          ? fetches[1].value
-          : ({ error: "Request failed", code: "SCRAPER_ERROR" } as ApiError),
-    });
+    try {
+      const fetches = await Promise.allSettled([
+        iosId
+          ? fetch(`/api/ios?appId=${encodeURIComponent(iosId)}`, {
+              signal: controller.signal,
+            }).then((r) => r.json() as Promise<AppData | ApiError>)
+          : Promise.resolve(null),
+        androidId
+          ? fetch(`/api/android?appId=${encodeURIComponent(androidId)}`, {
+              signal: controller.signal,
+            }).then((r) => r.json() as Promise<AppData | ApiError>)
+          : Promise.resolve(null),
+      ]);
 
-    setLoading(false);
+      setResults({
+        ios:
+          fetches[0].status === "fulfilled"
+            ? fetches[0].value
+            : ({ error: "Request failed", code: "SCRAPER_ERROR" } as ApiError),
+        android:
+          fetches[1].status === "fulfilled"
+            ? fetches[1].value
+            : ({ error: "Request failed", code: "SCRAPER_ERROR" } as ApiError),
+      });
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
+    }
   }
 
   const showResults = loading || results !== null;

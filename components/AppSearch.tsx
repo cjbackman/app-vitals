@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-interface SearchParams {
+export interface SearchParams {
   iosId: string;
   androidId: string;
 }
@@ -38,7 +38,7 @@ export default function AppSearch({ onSearch, loading }: AppSearchProps) {
             value={iosId}
             onChange={(e) => setIosId(e.target.value)}
             placeholder="e.g. com.spotify.client"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
         <div className="space-y-1">
@@ -54,7 +54,7 @@ export default function AppSearch({ onSearch, loading }: AppSearchProps) {
             value={androidId}
             onChange={(e) => setAndroidId(e.target.value)}
             placeholder="e.g. com.spotify.music"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </div>
