@@ -2,21 +2,11 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import store from "app-store-scraper";
 import type { AppData, AppPrice } from "@/types/app-data";
+import { AppNotFoundError, StoreScraperError, validateStoreUrl } from "@/lib/store-errors";
 
-export class AppNotFoundError extends Error {
-  readonly code = "APP_NOT_FOUND" as const;
-  constructor(appId: string) {
-    super(`App not found in App Store: ${appId}`);
-  }
-}
+export { AppNotFoundError, StoreScraperError };
 
-export class StoreScraperError extends Error {
-  readonly code = "SCRAPER_ERROR" as const;
-  constructor(cause: unknown) {
-    super("App Store scraper failed");
-    this.cause = cause;
-  }
-}
+const IOS_STORE_HOSTNAMES = ["apps.apple.com", "itunes.apple.com"];
 
 export async function fetchIosApp(
   appId: string,
@@ -35,9 +25,9 @@ export async function fetchIosApp(
     const message =
       err instanceof Error ? err.message.toLowerCase() : String(err);
     if (message.includes("not found") || message.includes("404")) {
-      throw new AppNotFoundError(appId);
+      throw new AppNotFoundError(appId, "App Store");
     }
-    throw new StoreScraperError(err);
+    throw new StoreScraperError("App Store", err);
   }
 
   const price: AppPrice =
@@ -53,8 +43,9 @@ export async function fetchIosApp(
     version: raw.version,
     developer: raw.developer,
     price,
+    // raw.updated is already an ISO 8601 string from the iTunes API
     updatedAt: raw.updated,
-    storeUrl: raw.url,
+    storeUrl: validateStoreUrl(raw.url, IOS_STORE_HOSTNAMES),
     store: "ios",
   };
 }

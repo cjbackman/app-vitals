@@ -5,6 +5,9 @@ import {
   StoreScraperError,
 } from "@/lib/ios-store";
 
+// Cap serverless function runtime so hung scraper calls don't hold slots indefinitely
+export const maxDuration = 15;
+
 const APP_ID_PATTERN = /^[a-zA-Z0-9._-]+$/;
 
 export async function GET(request: NextRequest) {

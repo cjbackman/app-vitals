@@ -149,14 +149,16 @@ export default function AppCard({ store, data, loading }: AppCardProps) {
         </div>
       </div>
 
-      <a
-        href={data.storeUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block text-xs text-blue-600 hover:underline"
-      >
-        View in {label} →
-      </a>
+      {data.storeUrl && (
+        <a
+          href={data.storeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block text-xs text-blue-600 hover:underline"
+        >
+          View in {label} →
+        </a>
+      )}
     </div>
   );
 }
