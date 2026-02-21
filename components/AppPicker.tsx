@@ -22,8 +22,8 @@ export default function AppPicker({ selectedPreset, onSelect }: AppPickerProps) 
             className={[
               "flex flex-col items-center gap-1 p-2 rounded-xl border transition-all flex-shrink-0",
               isActive
-                ? "ring-2 ring-blue-500 border-blue-300 bg-blue-50"
-                : "border-gray-200 hover:border-gray-300 bg-white",
+                ? "border-blue-400 bg-blue-50"
+                : "border-transparent hover:border-gray-200 bg-white",
             ].join(" ")}
           >
             <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-gray-100">
