@@ -71,8 +71,6 @@ export default function SearchPage() {
   }
 
   function handleSelect(preset: PresetApp) {
-    // Re-clicking the active preset is a no-op — avoids a disruptive loading flash.
-    if (preset === selectedPreset) return;
     setIosId(preset.iosId);
     setAndroidId(preset.androidId);
     handleSearch({ iosId: preset.iosId, androidId: preset.androidId });
@@ -88,16 +86,17 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-8">
-      <AppPicker selectedPreset={selectedPreset} onSelect={handleSelect} />
-
-      <AppSearch
-        iosId={iosId}
-        androidId={androidId}
-        onIosIdChange={setIosId}
-        onAndroidIdChange={setAndroidId}
-        onSearch={handleSearch}
-        loading={loading}
-      />
+      <div className="space-y-3">
+        <AppPicker selectedPreset={selectedPreset} onSelect={handleSelect} />
+        <AppSearch
+          iosId={iosId}
+          androidId={androidId}
+          onIosIdChange={setIosId}
+          onAndroidIdChange={setAndroidId}
+          onSearch={handleSearch}
+          loading={loading}
+        />
+      </div>
 
       {showResults && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
