@@ -19,6 +19,16 @@ export function getDb(): Database.Database {
       CREATE INDEX IF NOT EXISTS idx_snapshots_lookup
         ON snapshots (store, app_id, saved_at);
     `);
+    try {
+      globalForDb._db.exec(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_dedup ON snapshots (store, app_id, saved_at)"
+      );
+    } catch {
+      // Dev DB has duplicate (store, app_id, saved_at) rows — index not created.
+      // INSERT OR IGNORE in the bulk import route will still prevent new duplicates
+      // once the index exists. Clean up existing duplicates with:
+      // DELETE FROM snapshots WHERE id NOT IN (SELECT MIN(id) FROM snapshots GROUP BY store, app_id, saved_at)
+    }
   }
   return globalForDb._db;
 }
