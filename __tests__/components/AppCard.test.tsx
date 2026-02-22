@@ -1,6 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import AppCard from "@/components/AppCard";
 import type { AppData, ApiError } from "@/types/app-data";
+
+// Mock fetch globally for snapshot API calls.
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
 
 const BASE_APP: AppData = {
   title: "Spotify",
@@ -15,8 +20,22 @@ const BASE_APP: AppData = {
   store: "ios",
 };
 
+// Default: snapshot fetch returns empty array.
+function setupEmptySnapshots() {
+  mockFetch.mockResolvedValue({
+    json: () => Promise.resolve([]),
+    ok: true,
+  } as Response);
+}
+
+beforeEach(() => {
+  mockFetch.mockReset();
+  setupEmptySnapshots();
+});
+
 describe("AppCard", () => {
   it("renders app data correctly", () => {
+    // No appId — avoids triggering async snapshot fetch in this test.
     render(<AppCard store="ios" data={BASE_APP} />);
 
     expect(screen.getByText("Spotify")).toBeInTheDocument();
@@ -51,7 +70,15 @@ describe("AppCard", () => {
     expect(screen.getByText("Invalid app ID format.")).toBeInTheDocument();
   });
 
+  it("renders INVALID_SNAPSHOT_PARAMS error state", () => {
+    const error: ApiError = { error: "Bad params", code: "INVALID_SNAPSHOT_PARAMS" };
+    render(<AppCard store="ios" data={error} />);
+
+    expect(screen.getByText("Invalid snapshot data.")).toBeInTheDocument();
+  });
+
   it("shows store label for ios", () => {
+    // No appId — avoids async snapshot fetch side-effect.
     render(<AppCard store="ios" data={BASE_APP} />);
     expect(screen.getByText("App Store")).toBeInTheDocument();
   });
@@ -78,5 +105,96 @@ describe("AppCard", () => {
     };
     render(<AppCard store="ios" data={paid} />);
     expect(screen.getByText("$2.99")).toBeInTheDocument();
+  });
+});
+
+describe("AppCard Save snapshot button", () => {
+  it("shows Save snapshot button when data is loaded and appId provided", async () => {
+    await act(async () => {
+      render(<AppCard store="ios" data={BASE_APP} appId="com.spotify.client" />);
+    });
+    expect(screen.getByText("Save snapshot")).toBeInTheDocument();
+  });
+
+  it("does not show Save snapshot button when loading", () => {
+    render(<AppCard store="ios" data={null} loading appId="com.spotify.client" />);
+    expect(screen.queryByText("Save snapshot")).not.toBeInTheDocument();
+  });
+
+  it("does not show Save snapshot button when data is an error", () => {
+    const error: ApiError = { error: "not found", code: "APP_NOT_FOUND" };
+    render(<AppCard store="ios" data={error} appId="com.spotify.client" />);
+    expect(screen.queryByText("Save snapshot")).not.toBeInTheDocument();
+  });
+
+  it("does not show Save snapshot button when data is null", () => {
+    const { container } = render(<AppCard store="ios" data={null} appId="com.spotify.client" />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("Save button is disabled when appId is not provided", () => {
+    render(<AppCard store="ios" data={BASE_APP} />);
+    const button = screen.getByText("Save snapshot");
+    expect(button).toBeDisabled();
+  });
+
+  it("calls POST /api/snapshots when Save is clicked", async () => {
+    // First call: GET snapshots (returns []). Second call: POST save.
+    mockFetch
+      .mockResolvedValueOnce({ json: () => Promise.resolve([]), ok: true } as Response)
+      .mockResolvedValueOnce({
+        json: () => Promise.resolve({ id: 1, store: "ios", appId: "com.spotify.client", savedAt: "2026-01-01T00:00:00.000Z", score: 4.8, reviewCount: 12345678 }),
+        ok: true,
+      } as Response);
+
+    render(<AppCard store="ios" data={BASE_APP} appId="com.spotify.client" />);
+
+    const button = screen.getByText("Save snapshot");
+    await userEvent.click(button);
+
+    const postCall = mockFetch.mock.calls.find(
+      (call) => call[1]?.method === "POST"
+    );
+    expect(postCall).toBeDefined();
+    expect(postCall![0]).toBe("/api/snapshots");
+  });
+
+  it("shows Saving… while in flight, then Saved! on success", async () => {
+    let resolvePost!: (v: unknown) => void;
+    const postPromise = new Promise((r) => (resolvePost = r));
+
+    mockFetch
+      .mockResolvedValueOnce({ json: () => Promise.resolve([]), ok: true } as Response)
+      .mockReturnValueOnce({ json: () => postPromise, ok: true } as unknown as Response);
+
+    render(<AppCard store="ios" data={BASE_APP} appId="com.spotify.client" />);
+
+    const button = screen.getByText("Save snapshot");
+    await userEvent.click(button);
+
+    await waitFor(() =>
+      expect(screen.queryByText("Saving…")).toBeInTheDocument()
+    );
+
+    resolvePost({ id: 1, store: "ios", appId: "com.spotify.client", savedAt: "2026-01-01T00:00:00.000Z", score: 4.8, reviewCount: 12345678 });
+
+    await waitFor(() =>
+      expect(screen.queryByText("Saved!")).toBeInTheDocument()
+    );
+  });
+
+  it("shows Save failed when POST returns an error", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ json: () => Promise.resolve([]), ok: true } as Response)
+      .mockResolvedValueOnce({ ok: false } as Response);
+
+    render(<AppCard store="ios" data={BASE_APP} appId="com.spotify.client" />);
+
+    const button = screen.getByText("Save snapshot");
+    await userEvent.click(button);
+
+    await waitFor(() =>
+      expect(screen.queryByText("Save failed")).toBeInTheDocument()
+    );
   });
 });

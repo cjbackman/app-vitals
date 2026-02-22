@@ -1,6 +1,10 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { isApiError } from "@/types/app-data";
-import type { AppData, ApiError } from "@/types/app-data";
+import type { AppData, ApiError, Snapshot } from "@/types/app-data";
+import SnapshotHistory from "@/components/SnapshotHistory";
 
 function AppleIcon() {
   return (
@@ -52,6 +56,7 @@ interface AppCardProps {
   store: "ios" | "android";
   data: AppData | ApiError | null;
   loading?: boolean;
+  appId?: string;
 }
 
 const STORE_LABELS = {
@@ -59,8 +64,72 @@ const STORE_LABELS = {
   android: "Google Play",
 };
 
-export default function AppCard({ store, data, loading }: AppCardProps) {
+export default function AppCard({ store, data, loading, appId }: AppCardProps) {
   const label = STORE_LABELS[store];
+
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up the feedback timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  // Fetch snapshot history whenever the loaded app changes.
+  useEffect(() => {
+    if (!appId || !data || isApiError(data)) {
+      setSnapshots([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch(
+      `/api/snapshots?store=${store}&appId=${encodeURIComponent(appId)}`,
+      { signal: controller.signal }
+    )
+      .then((r) => (r.ok ? (r.json() as Promise<Snapshot[]>) : Promise.reject(r)))
+      .then((d) => setSnapshots(Array.isArray(d) ? d : []))
+      .catch(() => {}); // Snapshot history is best-effort
+
+    return () => controller.abort();
+  }, [store, appId, data]);
+
+  async function handleSave() {
+    if (!data || isApiError(data) || !appId || saving) return;
+
+    setSaving(true);
+    setSaveError(false);
+    try {
+      const res = await fetch("/api/snapshots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          store,
+          appId,
+          score: data.score,
+          reviewCount: data.reviewCount,
+          ...(store === "android" && data.minInstalls !== undefined
+            ? { minInstalls: data.minInstalls }
+            : {}),
+        }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const snapshot = await res.json() as Snapshot;
+      setSnapshots((prev) => [...prev, snapshot].slice(-30));
+      setSaved(true);
+      timerRef.current = setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError(true);
+      timerRef.current = setTimeout(() => setSaveError(false), 3000);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -90,6 +159,7 @@ export default function AppCard({ store, data, loading }: AppCardProps) {
       APP_NOT_FOUND: "App not found. Check the ID and try again.",
       INVALID_APP_ID: "Invalid app ID format.",
       SCRAPER_ERROR: "Could not reach the store. Try again later.",
+      INVALID_SNAPSHOT_PARAMS: "Invalid snapshot data.",
     };
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 space-y-2">
@@ -102,11 +172,22 @@ export default function AppCard({ store, data, loading }: AppCardProps) {
     );
   }
 
+  const saveLabel = saving ? "Saving…" : saved ? "Saved!" : saveError ? "Save failed" : "Save snapshot";
+
   return (
     <div className="rounded-2xl border border-gray-200 p-6 space-y-4">
-      <div className="flex items-center gap-1.5 text-gray-400">
-        {STORE_ICONS[store]}
-        <p className="text-sm font-medium">{label}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-gray-400">
+          {STORE_ICONS[store]}
+          <p className="text-sm font-medium">{label}</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || !appId}
+          className={`text-xs ${saveError ? "text-red-500" : "text-indigo-600 hover:text-indigo-800"} disabled:text-gray-300 disabled:cursor-not-allowed transition-colors`}
+        >
+          {saveLabel}
+        </button>
       </div>
 
       <div className="flex items-center gap-4">
@@ -162,6 +243,8 @@ export default function AppCard({ store, data, loading }: AppCardProps) {
           View in {label} →
         </a>
       )}
+
+      <SnapshotHistory snapshots={snapshots} store={store} />
     </div>
   );
 }

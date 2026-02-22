@@ -103,11 +103,17 @@ export default function SearchPage() {
 
       {showResults && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <AppCard store="ios" data={results?.ios ?? null} loading={loading} />
+          <AppCard
+            store="ios"
+            data={results?.ios ?? null}
+            loading={loading}
+            appId={iosId}
+          />
           <AppCard
             store="android"
             data={results?.android ?? null}
             loading={loading}
+            appId={androidId}
           />
         </div>
       )}
