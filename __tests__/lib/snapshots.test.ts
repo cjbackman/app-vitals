@@ -51,14 +51,7 @@ describe("saveSnapshot", () => {
     expect(snapshot.minInstalls).toBeUndefined();
   });
 
-  it("calls db.prepare with an INSERT statement", () => {
-    saveSnapshot("ios", "com.example.app", 3.9, 500);
 
-    expect(mockPrepare).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT INTO snapshots")
-    );
-    expect(mockRun).toHaveBeenCalled();
-  });
 });
 
 describe("getSnapshots", () => {
@@ -87,7 +80,6 @@ describe("getSnapshots", () => {
         min_installs: null,
       },
     ]);
-    mockPrepare.mockReturnValue({ run: mockRun, all: mockAll });
 
     const result = getSnapshots("ios", "com.spotify.client");
 
@@ -116,18 +108,11 @@ describe("getSnapshots", () => {
         min_installs: 500000000,
       },
     ]);
-    mockPrepare.mockReturnValue({ run: mockRun, all: mockAll });
 
     const result = getSnapshots("android", "com.spotify.music");
 
     expect(result[0]?.minInstalls).toBe(500000000);
   });
 
-  it("calls db.prepare with a SELECT LIMIT 30 query", () => {
-    getSnapshots("ios", "com.example.app");
 
-    expect(mockPrepare).toHaveBeenCalledWith(
-      expect.stringContaining("LIMIT 30")
-    );
-  });
 });

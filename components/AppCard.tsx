@@ -70,9 +70,10 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clean up the "Saved!" timer on unmount.
+  // Clean up the feedback timer on unmount.
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -91,8 +92,8 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
       `/api/snapshots?store=${store}&appId=${encodeURIComponent(appId)}`,
       { signal: controller.signal }
     )
-      .then((r) => r.json())
-      .then((d) => setSnapshots(d))
+      .then((r) => (r.ok ? (r.json() as Promise<Snapshot[]>) : Promise.reject(r)))
+      .then((d) => setSnapshots(Array.isArray(d) ? d : []))
       .catch(() => {}); // Snapshot history is best-effort
 
     return () => controller.abort();
@@ -102,8 +103,9 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
     if (!data || isApiError(data) || !appId || saving) return;
 
     setSaving(true);
+    setSaveError(false);
     try {
-      await fetch("/api/snapshots", {
+      const res = await fetch("/api/snapshots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -116,18 +118,14 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
             : {}),
         }),
       });
-
-      // Re-fetch history after save.
-      const res = await fetch(
-        `/api/snapshots?store=${store}&appId=${encodeURIComponent(appId)}`
-      );
-      const updated = await res.json();
-      setSnapshots(updated);
-
+      if (!res.ok) throw new Error("Save failed");
+      const snapshot = await res.json() as Snapshot;
+      setSnapshots((prev) => [...prev, snapshot].slice(-30));
       setSaved(true);
       timerRef.current = setTimeout(() => setSaved(false), 2000);
     } catch {
-      // Silently fail — save error shouldn't crash the card.
+      setSaveError(true);
+      timerRef.current = setTimeout(() => setSaveError(false), 3000);
     } finally {
       setSaving(false);
     }
@@ -161,6 +159,7 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
       APP_NOT_FOUND: "App not found. Check the ID and try again.",
       INVALID_APP_ID: "Invalid app ID format.",
       SCRAPER_ERROR: "Could not reach the store. Try again later.",
+      INVALID_SNAPSHOT_PARAMS: "Invalid snapshot data.",
     };
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 space-y-2">
@@ -173,7 +172,7 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
     );
   }
 
-  const saveLabel = saving ? "Saving…" : saved ? "Saved!" : "Save snapshot";
+  const saveLabel = saving ? "Saving…" : saved ? "Saved!" : saveError ? "Save failed" : "Save snapshot";
 
   return (
     <div className="rounded-2xl border border-gray-200 p-6 space-y-4">
@@ -185,7 +184,7 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
         <button
           onClick={handleSave}
           disabled={saving || !appId}
-          className="text-xs text-indigo-600 hover:text-indigo-800 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+          className={`text-xs ${saveError ? "text-red-500" : "text-indigo-600 hover:text-indigo-800"} disabled:text-gray-300 disabled:cursor-not-allowed transition-colors`}
         >
           {saveLabel}
         </button>

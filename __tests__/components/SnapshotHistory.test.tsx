@@ -39,7 +39,7 @@ describe("SnapshotHistory", () => {
   it("does not render Installs sparkline for iOS", () => {
     render(<SnapshotHistory snapshots={[IOS_SNAPSHOT]} store="ios" />);
 
-    expect(screen.queryByTestId("sparkline-installs")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Installs trend")).not.toBeInTheDocument();
   });
 
   it("renders Rating, Reviews, and Installs sparklines for Android", () => {
@@ -49,7 +49,6 @@ describe("SnapshotHistory", () => {
 
     expect(screen.getByLabelText("Rating trend")).toBeInTheDocument();
     expect(screen.getByLabelText("Reviews trend")).toBeInTheDocument();
-    expect(screen.getByTestId("sparkline-installs")).toBeInTheDocument();
     expect(screen.getByLabelText("Installs trend")).toBeInTheDocument();
   });
 

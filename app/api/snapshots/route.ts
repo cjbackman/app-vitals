@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { saveSnapshot, getSnapshots } from "@/lib/snapshots";
-
-const APP_ID_PATTERN = /^[a-zA-Z0-9._-]+$/;
-const MAX_APP_ID_LENGTH = 256;
+import { APP_ID_PATTERN, MAX_APP_ID_LENGTH } from "@/lib/make-store-handler";
 
 function isValidStore(value: unknown): value is "ios" | "android" {
   return value === "ios" || value === "android";
@@ -23,13 +21,20 @@ export async function GET(request: NextRequest) {
 
   if (!isValidStore(store) || !isValidAppId(appId)) {
     return NextResponse.json(
-      { error: "Missing or invalid store/appId parameters" },
+      { error: "Missing or invalid store/appId parameters", code: "INVALID_SNAPSHOT_PARAMS" },
       { status: 400 }
     );
   }
 
-  const snapshots = getSnapshots(store, appId);
-  return NextResponse.json(snapshots);
+  try {
+    const snapshots = getSnapshots(store, appId);
+    return NextResponse.json(snapshots);
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to retrieve snapshots", code: "SCRAPER_ERROR" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -37,11 +42,17 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON body", code: "INVALID_SNAPSHOT_PARAMS" },
+      { status: 400 }
+    );
   }
 
   if (typeof body !== "object" || body === null) {
-    return NextResponse.json({ error: "Body must be an object" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Body must be an object", code: "INVALID_SNAPSHOT_PARAMS" },
+      { status: 400 }
+    );
   }
 
   const b = body as Record<string, unknown>;
@@ -50,17 +61,31 @@ export async function POST(request: NextRequest) {
     !isValidStore(b.store) ||
     !isValidAppId(b.appId) ||
     typeof b.score !== "number" ||
-    typeof b.reviewCount !== "number"
+    !Number.isFinite(b.score) ||
+    b.score < 0 ||
+    b.score > 5 ||
+    typeof b.reviewCount !== "number" ||
+    !Number.isFinite(b.reviewCount) ||
+    b.reviewCount < 0
   ) {
     return NextResponse.json(
-      { error: "Missing or invalid required fields: store, appId, score, reviewCount" },
+      { error: "Missing or invalid required fields: store, appId, score (0–5), reviewCount (≥0)", code: "INVALID_SNAPSHOT_PARAMS" },
       { status: 400 }
     );
   }
 
   const minInstalls =
-    typeof b.minInstalls === "number" ? b.minInstalls : undefined;
+    typeof b.minInstalls === "number" && Number.isFinite(b.minInstalls) && b.minInstalls >= 0
+      ? b.minInstalls
+      : undefined;
 
-  const snapshot = saveSnapshot(b.store, b.appId, b.score, b.reviewCount, minInstalls);
-  return NextResponse.json(snapshot, { status: 201 });
+  try {
+    const snapshot = saveSnapshot(b.store, b.appId, b.score, b.reviewCount, minInstalls);
+    return NextResponse.json(snapshot, { status: 201 });
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to save snapshot", code: "SCRAPER_ERROR" },
+      { status: 500 }
+    );
+  }
 }

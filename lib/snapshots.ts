@@ -18,7 +18,7 @@ export function saveSnapshot(
     .run(store, appId, savedAt, score, reviewCount, minInstalls ?? null);
 
   return {
-    id: result.lastInsertRowid as number,
+    id: Number(result.lastInsertRowid),
     store,
     appId,
     savedAt,
@@ -45,7 +45,7 @@ export function getSnapshots(
   const db = getDb();
   const rows = db
     .prepare(
-      "SELECT id, store, app_id, saved_at, score, review_count, min_installs FROM snapshots WHERE store = ? AND app_id = ? ORDER BY saved_at ASC LIMIT 30"
+      "SELECT id, store, app_id, saved_at, score, review_count, min_installs FROM (SELECT id, store, app_id, saved_at, score, review_count, min_installs FROM snapshots WHERE store = ? AND app_id = ? ORDER BY saved_at DESC LIMIT 30) ORDER BY saved_at ASC"
     )
     .all(store, appId) as SnapshotRow[];
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Snapshot } from "@/types/app-data";
 
 const WIDTH = 120;
@@ -6,7 +7,7 @@ const STROKE = "#6366f1";
 const STROKE_WIDTH = 1.5;
 
 function Sparkline({ data, label }: { data: number[]; label: string }) {
-  let content: React.ReactNode;
+  let content: ReactNode;
 
   if (data.length === 1) {
     content = (
@@ -68,6 +69,7 @@ export default function SnapshotHistory({
 
   const ratings = snapshots.map((s) => s.score);
   const reviews = snapshots.map((s) => s.reviewCount);
+  // TypeScript cannot narrow optional properties through .filter(); cast is safe here.
   const installs = snapshots
     .filter((s) => s.minInstalls !== undefined)
     .map((s) => s.minInstalls as number);
@@ -81,9 +83,7 @@ export default function SnapshotHistory({
         <Sparkline data={ratings} label="Rating" />
         <Sparkline data={reviews} label="Reviews" />
         {store === "android" && installs.length > 0 && (
-          <div data-testid="sparkline-installs">
-            <Sparkline data={installs} label="Installs" />
-          </div>
+          <Sparkline data={installs} label="Installs" />
         )}
       </div>
     </div>

@@ -2,8 +2,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import type { AppData } from "@/types/app-data";
 import { AppNotFoundError, StoreScraperError } from "@/lib/store-errors";
 
-const APP_ID_PATTERN = /^[a-zA-Z0-9._-]+$/;
-const MAX_APP_ID_LENGTH = 256;
+export const APP_ID_PATTERN = /^[a-zA-Z0-9._-]+$/;
+export const MAX_APP_ID_LENGTH = 256;
 
 /**
  * Returns a Next.js GET route handler for a store scraper.

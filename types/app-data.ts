@@ -37,7 +37,7 @@ export interface Snapshot {
 
 export interface ApiError {
   error: string;
-  code: "APP_NOT_FOUND" | "SCRAPER_ERROR" | "INVALID_APP_ID";
+  code: "APP_NOT_FOUND" | "SCRAPER_ERROR" | "INVALID_APP_ID" | "INVALID_SNAPSHOT_PARAMS";
 }
 
 /** Type guard that narrows AppData | ApiError to ApiError. */
