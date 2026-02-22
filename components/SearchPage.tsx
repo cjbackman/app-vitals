@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import AppSearch, { type SearchParams } from "@/components/AppSearch";
 import AppPicker from "@/components/AppPicker";
 import AppCard from "@/components/AppCard";
-import { PRESET_APPS, type PresetApp } from "@/components/preset-apps";
+import { PRESET_APPS, type PresetApp } from "@/components/PresetApps";
 import type { AppData, ApiError } from "@/types/app-data";
 
 interface Results {
@@ -12,7 +12,8 @@ interface Results {
   android: AppData | ApiError | null;
 }
 
-const DEFAULT = PRESET_APPS[0];
+// PRESET_APPS always has at least one entry; update this line if removing presets.
+const DEFAULT = PRESET_APPS[0]!;
 
 export default function SearchPage() {
   const [iosId, setIosId] = useState(DEFAULT.iosId);
@@ -73,12 +74,14 @@ export default function SearchPage() {
   function handleSelect(preset: PresetApp) {
     setIosId(preset.iosId);
     setAndroidId(preset.androidId);
+    // Pass IDs as explicit arguments — state setters above are async and haven't flushed yet.
     handleSearch({ iosId: preset.iosId, androidId: preset.androidId });
   }
 
   useEffect(() => {
     // Auto-search the default preset on mount.
-    // handleSearch is intentionally omitted from deps: this must run exactly once.
+    // handleSearch is omitted from deps intentionally: it only reads its arguments (never
+    // component state), so the mounted closure is safe for the lifetime of this effect.
     handleSearch({ iosId: DEFAULT.iosId, androidId: DEFAULT.androidId });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

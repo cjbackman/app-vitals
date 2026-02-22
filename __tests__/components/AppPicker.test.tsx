@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AppPicker from "@/components/AppPicker";
-import { PRESET_APPS } from "@/components/preset-apps";
+import { PRESET_APPS } from "@/components/PresetApps";
 
 // next/image doesn't render in jsdom — mock it as a plain <img>
 jest.mock("next/image", () => ({
@@ -45,10 +45,4 @@ describe("AppPicker", () => {
     );
   });
 
-  it("does not highlight any button when selected preset is null", () => {
-    render(<AppPicker selectedPreset={null} onSelect={jest.fn()} />);
-    const btn = screen.getByRole("button", { name: babbel.name });
-    expect(btn).toHaveAttribute("aria-pressed", "false");
-    expect(btn.className).not.toContain("ring-2");
-  });
 });

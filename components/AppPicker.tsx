@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { PRESET_APPS, type PresetApp } from "@/components/preset-apps";
+import { PRESET_APPS, type PresetApp } from "@/components/PresetApps";
 
 interface AppPickerProps {
   selectedPreset: PresetApp | null;
@@ -12,7 +12,11 @@ export default function AppPicker({ selectedPreset, onSelect }: AppPickerProps) 
   return (
     <div role="group" aria-label="Quick-pick app" className="flex gap-3 overflow-x-auto pb-1">
       {PRESET_APPS.map((preset) => {
-        const isActive = preset === selectedPreset;
+        // Value comparison — safer than identity in case PRESET_APPS is ever reconstructed.
+        const isActive =
+          selectedPreset !== null &&
+          preset.iosId === selectedPreset.iosId &&
+          preset.androidId === selectedPreset.androidId;
         return (
           <button
             key={preset.iosId}
