@@ -10,7 +10,9 @@
     "test": "jest"
   },
   "dependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "app-store-scraper": "^0.18.0",
+    "better-sqlite3": "^12.6.2",
     "google-play-scraper": "^10.1.2",
     "next": "16.1.6",
     "react": "19.2.3",

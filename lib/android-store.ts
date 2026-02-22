@@ -47,6 +47,7 @@ export async function fetchAndroidApp(
     updatedAt: new Date(raw.updated).toISOString(),
     storeUrl: validateStoreUrl(raw.url, ANDROID_STORE_HOSTNAMES),
     store: "android",
+    minInstalls: raw.minInstalls,
   };
 }
 

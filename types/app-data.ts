@@ -19,6 +19,20 @@ export interface AppData {
   /** Fully-qualified URL to the app's store page */
   storeUrl: string;
   store: "ios" | "android";
+  /** Android-only: minimum install count from Google Play. Not available for iOS. */
+  minInstalls?: number;
+}
+
+/** A saved snapshot of app metrics at a point in time. */
+export interface Snapshot {
+  id: number;
+  store: "ios" | "android";
+  appId: string;
+  savedAt: string; // ISO 8601
+  score: number;
+  reviewCount: number;
+  /** Android only; never present on iOS snapshots. */
+  minInstalls?: number;
 }
 
 export interface ApiError {

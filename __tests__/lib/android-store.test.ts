@@ -28,6 +28,7 @@ const BASE_RAW = {
   scoreText: "4.3",
   ratings: 23456789,
   reviews: 1234567,
+  minInstalls: 500000000,
   histogram: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
   price: 0,
   free: true,
@@ -110,6 +111,14 @@ describe("fetchAndroidApp", () => {
     const result = await fetchAndroidApp("com.spotify.music");
 
     expect(result.reviewCount).toBe(5000000);
+  });
+
+  it("maps minInstalls from raw scraper field", async () => {
+    mockGplayApp.mockResolvedValue({ ...BASE_RAW, minInstalls: 500000000 });
+
+    const result = await fetchAndroidApp("com.spotify.music");
+
+    expect(result.minInstalls).toBe(500000000);
   });
 
   it("throws AppNotFoundError when scraper says not found", async () => {
