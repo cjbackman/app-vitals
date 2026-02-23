@@ -145,6 +145,18 @@ describe("ImportPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/Could not reach the server/);
   });
 
+  it("parses a BOM-prefixed CSV correctly (Excel export)", async () => {
+    const bomCsv = "\uFEFF" + VALID_CSV;
+    render(<ImportPage />);
+    const input = screen.getByLabelText("CSV file") as HTMLInputElement;
+
+    await act(async () => {
+      await userEvent.upload(input, makeFile(bomCsv));
+    });
+
+    expect(await screen.findByText(/2 rows ready to import/)).toBeInTheDocument();
+  });
+
   it("shows server error message on non-ok response", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,

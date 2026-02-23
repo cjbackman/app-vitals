@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 const EXPECTED_HEADERS = "store,app_id,saved_at,score,review_count,min_installs";
 const MAX_ROWS = 1000;
@@ -15,11 +15,13 @@ type ParsedRow = {
 };
 
 type ParseResult =
-  | { ok: true; rows: ParsedRow[]; rowCount: number }
+  | { ok: true; rows: ParsedRow[] }
   | { ok: false; error: string };
 
 function parseCsv(text: string): ParseResult {
-  const lines = text.trim().split("\n");
+  // Strip UTF-8 BOM that Excel and some exporters prepend.
+  const clean = text.replace(/^\uFEFF/, "");
+  const lines = clean.trim().split("\n");
   if (lines.length === 0) return { ok: false, error: "File is empty." };
 
   const header = lines[0].trim().replace(/\r$/, "");
@@ -49,7 +51,7 @@ function parseCsv(text: string): ParseResult {
     };
   });
 
-  return { ok: true, rows, rowCount: rows.length };
+  return { ok: true, rows };
 }
 
 export default function ImportPage() {
@@ -57,7 +59,6 @@ export default function ImportPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ inserted: number; skipped: number } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -139,7 +140,6 @@ export default function ImportPage() {
           </label>
           <input
             id="csv-file"
-            ref={inputRef}
             type="file"
             accept=".csv"
             onChange={handleFile}
@@ -153,7 +153,7 @@ export default function ImportPage() {
 
         {parseResult?.ok && (
           <p className="text-sm text-gray-600">
-            {parseResult.rowCount} row{parseResult.rowCount !== 1 ? "s" : ""} ready to import.
+            {parseResult.rows.length} row{parseResult.rows.length !== 1 ? "s" : ""} ready to import.
             <span className="ml-1 text-xs text-gray-400">
               (Duplicate detection matches exact timestamp.)
             </span>

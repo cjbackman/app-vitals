@@ -11,16 +11,42 @@ export function normalizeSavedAt(value: string): string | null {
     return Number.isNaN(d.getTime()) ? null : d.toISOString();
   }
   // Date-only: always append explicit UTC midnight to avoid TZ ambiguity.
-  // new Date("2025-08-01") is technically UTC per spec but ambiguous in practice;
-  // new Date("2025-08-01T00:00:00.000Z") is always UTC midnight.
+  // Round-trip check rejects overflowed calendar dates (e.g. "2025-02-29" → null).
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
     const d = new Date(`${value}T00:00:00.000Z`);
-    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+    if (
+      Number.isNaN(d.getTime()) ||
+      d.getUTCFullYear() !== year ||
+      d.getUTCMonth() + 1 !== month ||
+      d.getUTCDate() !== day
+    ) {
+      return null;
+    }
+    return d.toISOString();
   }
   return null;
 }
 
+type ValidatedRow = {
+  store: string;
+  appId: string;
+  savedAt: string;
+  score: number;
+  reviewCount: number;
+  minInstalls: number | null;
+};
+
 export async function POST(request: NextRequest) {
+  // Content-Length guard — reject clearly oversized bodies before buffering.
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 1_048_576) {
+    return NextResponse.json(
+      { error: "Request body too large (max 1 MB)", code: "INVALID_SNAPSHOT_PARAMS" },
+      { status: 413 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -55,9 +81,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Validate all rows up-front — reject the whole request if any row is invalid.
-  const rows = b.rows as unknown[];
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
+  // Collect pre-normalized rows so the insert loop doesn't re-derive values.
+  const validatedRows: ValidatedRow[] = [];
+  const rawRows = b.rows as unknown[];
+  for (let i = 0; i < rawRows.length; i++) {
+    const row = rawRows[i];
     if (typeof row !== "object" || row === null) {
       return NextResponse.json(
         { error: `row ${i + 1}: must be an object`, code: "INVALID_SNAPSHOT_PARAMS" },
@@ -83,7 +111,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (typeof r.savedAt !== "string" || normalizeSavedAt(r.savedAt) === null) {
+    const savedAt = typeof r.savedAt === "string" ? normalizeSavedAt(r.savedAt) : null;
+    if (savedAt === null) {
       return NextResponse.json(
         { error: `row ${i + 1}: invalid savedAt`, code: "INVALID_SNAPSHOT_PARAMS" },
         { status: 400 }
@@ -121,33 +150,59 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    validatedRows.push({
+      store: r.store,
+      appId: r.appId as string,
+      savedAt,
+      score: r.score as number,
+      reviewCount: r.reviewCount as number,
+      minInstalls: (r.minInstalls as number | undefined) ?? null,
+    });
   }
 
   try {
     const db = getDb();
+
+    // Deduplication depends on the UNIQUE INDEX. If getDb() couldn't create it
+    // (e.g., dev DB has pre-existing duplicate rows), surface a clear error.
+    const g = global as typeof global & { _dbDedupDisabled?: boolean };
+    if (g._dbDedupDisabled) {
+      return NextResponse.json(
+        {
+          error:
+            "Deduplication index is unavailable — import disabled. " +
+            "See server logs for cleanup instructions.",
+          code: "IMPORT_ERROR",
+        },
+        { status: 503 }
+      );
+    }
+
     const stmt = db.prepare(
       "INSERT OR IGNORE INTO snapshots (store, app_id, saved_at, score, review_count, min_installs) VALUES (?, ?, ?, ?, ?, ?)"
     );
-    let inserted = 0;
-    let skipped = 0;
 
-    for (const row of rows as Array<Record<string, unknown>>) {
-      const savedAt = normalizeSavedAt(row.savedAt as string)!;
-      const result = stmt.run(
-        row.store,
-        row.appId,
-        savedAt,
-        row.score,
-        row.reviewCount,
-        (row.minInstalls as number | undefined) ?? null
-      );
-      result.changes === 1 ? inserted++ : skipped++;
-    }
+    const importAll = db.transaction((rows: ValidatedRow[]) => {
+      let inserted = 0;
+      let skipped = 0;
+      for (const row of rows) {
+        const result = stmt.run(
+          row.store,
+          row.appId,
+          row.savedAt,
+          row.score,
+          row.reviewCount,
+          row.minInstalls
+        );
+        result.changes === 1 ? inserted++ : skipped++;
+      }
+      return { inserted, skipped };
+    });
 
-    return NextResponse.json({ inserted, skipped });
+    return NextResponse.json(importAll(validatedRows));
   } catch {
     return NextResponse.json(
-      { error: "Failed to import snapshots", code: "SCRAPER_ERROR" },
+      { error: "Failed to import snapshots", code: "IMPORT_ERROR" },
       { status: 500 }
     );
   }

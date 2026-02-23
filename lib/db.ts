@@ -1,7 +1,10 @@
 import "server-only";
 import Database from "better-sqlite3";
 
-const globalForDb = global as typeof global & { _db?: Database.Database };
+const globalForDb = global as typeof global & {
+  _db?: Database.Database;
+  _dbDedupDisabled?: boolean;
+};
 
 export function getDb(): Database.Database {
   if (!globalForDb._db) {
@@ -25,9 +28,14 @@ export function getDb(): Database.Database {
       );
     } catch {
       // Dev DB has duplicate (store, app_id, saved_at) rows — index not created.
-      // INSERT OR IGNORE in the bulk import route will still prevent new duplicates
-      // once the index exists. Clean up existing duplicates with:
+      // Bulk import is disabled until duplicates are removed:
       // DELETE FROM snapshots WHERE id NOT IN (SELECT MIN(id) FROM snapshots GROUP BY store, app_id, saved_at)
+      console.warn(
+        "[db] UNIQUE INDEX idx_snapshots_dedup could not be created — " +
+        "bulk import will be disabled until duplicate rows are removed. " +
+        "Run: DELETE FROM snapshots WHERE id NOT IN (SELECT MIN(id) FROM snapshots GROUP BY store, app_id, saved_at)"
+      );
+      globalForDb._dbDedupDisabled = true;
     }
   }
   return globalForDb._db;
