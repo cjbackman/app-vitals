@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import AppSearch, { type SearchParams } from "@/components/AppSearch";
 import AppPicker from "@/components/AppPicker";
 import AppCard from "@/components/AppCard";
@@ -89,6 +90,11 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-8">
+      <div className="flex justify-end">
+        <Link href="/import" className="text-xs text-gray-400 hover:text-indigo-600 transition-colors">
+          Import history →
+        </Link>
+      </div>
       <div className="space-y-3">
         <AppPicker selectedPreset={selectedPreset} onSelect={handleSelect} />
         <AppSearch
