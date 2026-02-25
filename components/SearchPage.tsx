@@ -114,12 +114,14 @@ export default function SearchPage() {
             data={results?.ios ?? null}
             loading={loading}
             appId={iosId}
+            brandColor={selectedPreset?.brandColor}
           />
           <AppCard
             store="android"
             data={results?.android ?? null}
             loading={loading}
             appId={androidId}
+            brandColor={selectedPreset?.brandColor}
           />
         </div>
       )}
