@@ -91,7 +91,7 @@ function ok(data: unknown): Promise<Response> {
 }
 
 /** Sets up fetch responses based on URL — order-independent. */
-function setupFetchByUrl(overrides: Record<string, AppData | ApiError | null> = {}) {
+function setupFetchByUrl(overrides: Record<string, AppData | ApiError> = {}) {
   mockFetch.mockImplementation((url: string) => {
     if (url.includes("/api/snapshots")) return ok([]);
     if (url.includes(`appId=${encodeURIComponent(babbel.iosId)}`))
@@ -119,7 +119,7 @@ describe("SearchPage — competitor comparison", () => {
 
     // Competitor section appeared (data-testid added to disambiguate from picker buttons)
     await waitFor(() =>
-      expect(screen.getByTestId("competitor-section")).toBeInTheDocument()
+      expect(screen.getAllByTestId("competitor-section")[0]).toBeInTheDocument()
     );
   });
 
@@ -154,7 +154,7 @@ describe("SearchPage — competitor comparison", () => {
     );
 
     // Competitor section should not exist (app picker buttons are unrelated)
-    expect(screen.queryByTestId("competitor-section")).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("competitor-section")).toHaveLength(0);
   });
 
   it("clears competitor results immediately when a new search starts", async () => {
@@ -165,7 +165,7 @@ describe("SearchPage — competitor comparison", () => {
       render(<SearchPage />);
     });
     await waitFor(() =>
-      expect(screen.getByTestId("competitor-section")).toBeInTheDocument()
+      expect(screen.getAllByTestId("competitor-section")[0]).toBeInTheDocument()
     );
 
     // Set up a slow second search so we can check the intermediate cleared state
@@ -190,7 +190,7 @@ describe("SearchPage — competitor comparison", () => {
 
     // Competitor section should be gone immediately (cleared at start of handleSearch)
     await waitFor(() =>
-      expect(screen.queryByTestId("competitor-section")).not.toBeInTheDocument()
+      expect(screen.queryAllByTestId("competitor-section")).toHaveLength(0)
     );
 
     // Resolve the fetch so we don't leave hanging promises
@@ -216,7 +216,7 @@ describe("SearchPage — competitor comparison", () => {
     );
 
     // Competitor section still renders (Duolingo row, even if one card errors)
-    expect(screen.getByTestId("competitor-section")).toBeInTheDocument();
+    expect(screen.getAllByTestId("competitor-section")[0]).toBeInTheDocument();
 
     // The error card message should appear for the failed iOS fetch
     expect(
@@ -232,7 +232,7 @@ describe("SearchPage — competitor comparison", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId("competitor-section")).toBeInTheDocument()
+      expect(screen.getAllByTestId("competitor-section")[0]).toBeInTheDocument()
     );
 
     // The Duolingo AppCard's SnapshotHistory should receive Duolingo's brand green.
