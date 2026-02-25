@@ -1,43 +1,139 @@
 import type { ReactNode } from "react";
 import type { Snapshot } from "@/types/app-data";
+import { formatCount } from "@/lib/format";
 
-const WIDTH = 120;
-const HEIGHT = 32;
+const WIDTH = 260;
+const HEIGHT = 80;
+const PAD_LEFT = 30;
+const PAD_Y = 6;
 const STROKE = "#6366f1";
 const STROKE_WIDTH = 1.5;
+const chartW = WIDTH - PAD_LEFT;
+const chartH = HEIGHT - PAD_Y * 2;
 
-function Sparkline({ data, label }: { data: number[]; label: string }) {
+/**
+ * Returns a format function that guarantees min and max produce distinct labels.
+ * When the base formatter collapses both to the same string, increases precision
+ * until they differ (or falls back to raw toLocaleString).
+ */
+function buildAxisFormat(
+  min: number,
+  max: number,
+  base: (n: number) => string
+): (n: number) => string {
+  if (min === max) return base;
+  if (base(min) !== base(max)) return base;
+
+  if (max < 100) {
+    // toFixed(2) is the maximum useful precision for ratings.
+    // Values indistinguishable at 2dp are noise — labelsDistinct will flatten them.
+    const fmt = (n: number) => n.toFixed(2);
+    if (fmt(min) !== fmt(max)) return fmt;
+  } else {
+    // Large count: increase decimal places in k/M notation
+    const divisor = max >= 1_000_000 ? 1_000_000 : 1_000;
+    const suffix = max >= 1_000_000 ? "M" : "k";
+    for (let d = 2; d <= 4; d++) {
+      const fmt = (n: number) =>
+        `${(n / divisor).toFixed(d).replace(/\.?0+$/, "")}${suffix}`;
+      if (fmt(min) !== fmt(max)) return fmt;
+    }
+    return (n: number) => n.toLocaleString();
+  }
+  return base;
+}
+
+function Sparkline({
+  data,
+  label,
+  color,
+  format,
+}: {
+  data: number[];
+  label: string;
+  color?: string;
+  format: (n: number) => string;
+}) {
+  const stroke = color ?? STROKE;
   let content: ReactNode;
 
   if (data.length === 1) {
     content = (
-      <circle cx={WIDTH / 2} cy={HEIGHT / 2} r={2} fill={STROKE} />
+      <circle cx={PAD_LEFT + chartW / 2} cy={PAD_Y + chartH / 2} r={2} fill={stroke} />
     );
   } else {
     const min = Math.min(...data);
     const max = Math.max(...data);
     const range = max - min;
+    const axisFmt = buildAxisFormat(min, max, format);
+
+    // If the formatter still can't produce distinct labels (e.g. floating-point noise),
+    // treat the chart as flat: flatten the line and show one centered label.
+    const labelsDistinct = range > 0 && axisFmt(min) !== axisFmt(max);
+    const effectiveRange = labelsDistinct ? range : 0;
 
     const points = data
       .map((v, i) => {
-        const x = (i / (data.length - 1)) * WIDTH;
+        const x = PAD_LEFT + (i / (data.length - 1)) * chartW;
         const y =
-          range === 0
-            ? HEIGHT / 2
-            : HEIGHT - ((v - min) / range) * HEIGHT;
+          effectiveRange === 0
+            ? PAD_Y + chartH / 2
+            : PAD_Y + chartH - ((v - min) / effectiveRange) * chartH;
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(" ");
 
+    const axisLabels =
+      !labelsDistinct || effectiveRange === 0 ? (
+        // Flat (or indistinguishable range): one centered label
+        <text
+          x={PAD_LEFT - 2}
+          y={PAD_Y + chartH / 2}
+          textAnchor="end"
+          dominantBaseline="middle"
+          fontSize={9}
+          fill="#9ca3af"
+        >
+          {axisFmt(min)}
+        </text>
+      ) : (
+        // Distinct range: max at top, min at bottom
+        <>
+          <text
+            x={PAD_LEFT - 2}
+            y={PAD_Y}
+            textAnchor="end"
+            dominantBaseline="hanging"
+            fontSize={9}
+            fill="#9ca3af"
+          >
+            {axisFmt(max)}
+          </text>
+          <text
+            x={PAD_LEFT - 2}
+            y={HEIGHT - PAD_Y}
+            textAnchor="end"
+            dominantBaseline="auto"
+            fontSize={9}
+            fill="#9ca3af"
+          >
+            {axisFmt(min)}
+          </text>
+        </>
+      );
+
     content = (
-      <polyline
-        points={points}
-        fill="none"
-        stroke={STROKE}
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <>
+        {axisLabels}
+        <polyline
+          points={points}
+          fill="none"
+          stroke={stroke}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </>
     );
   }
 
@@ -59,11 +155,13 @@ function Sparkline({ data, label }: { data: number[]; label: string }) {
 interface SnapshotHistoryProps {
   snapshots: Snapshot[];
   store: "ios" | "android";
+  color?: string;
 }
 
 export default function SnapshotHistory({
   snapshots,
   store,
+  color,
 }: SnapshotHistoryProps) {
   if (snapshots.length === 0) return null;
 
@@ -80,10 +178,11 @@ export default function SnapshotHistory({
         History · {snapshots.length} snapshot{snapshots.length > 1 ? "s" : ""}
       </p>
       <div className="flex flex-wrap gap-6">
-        <Sparkline data={ratings} label="Rating" />
-        <Sparkline data={reviews} label="Reviews" />
+        {/* toFixed(2) as base: shows "4.70"/"4.73" for normal variation without needing adaptive path */}
+        <Sparkline data={ratings} label="Rating" format={(n) => n.toFixed(2)} color={color} />
+        <Sparkline data={reviews} label="Reviews" format={formatCount} color={color} />
         {store === "android" && installs.length > 0 && (
-          <Sparkline data={installs} label="Installs" />
+          <Sparkline data={installs} label="Installs" format={formatCount} color={color} />
         )}
       </div>
     </div>
