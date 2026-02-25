@@ -5,6 +5,7 @@ import Image from "next/image";
 import { isApiError } from "@/types/app-data";
 import type { AppData, ApiError, Snapshot } from "@/types/app-data";
 import SnapshotHistory from "@/components/SnapshotHistory";
+import { formatCount } from "@/lib/format";
 
 function AppleIcon() {
   return (
@@ -46,11 +47,6 @@ function formatDate(isoString: string): string {
   });
 }
 
-function formatReviewCount(count: number): string {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
-  return count.toLocaleString();
-}
 
 interface AppCardProps {
   store: "ios" | "android";
@@ -130,6 +126,12 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
       setSaving(false);
     }
   }
+
+  const brandColor =
+    (store === "ios" && appId === "829587759") ||
+    (store === "android" && appId === "com.babbel.mobile.android.en")
+      ? "#FF6700"
+      : undefined;
 
   if (loading) {
     return (
@@ -216,7 +218,7 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
         <div>
           <p className="text-gray-400">Reviews</p>
           <p className="font-medium text-gray-900">
-            {formatReviewCount(data.reviewCount)}
+            {formatCount(data.reviewCount)}
           </p>
         </div>
         <div>
@@ -244,7 +246,7 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
         </a>
       )}
 
-      <SnapshotHistory snapshots={snapshots} store={store} />
+      <SnapshotHistory snapshots={snapshots} store={store} color={brandColor} />
     </div>
   );
 }
