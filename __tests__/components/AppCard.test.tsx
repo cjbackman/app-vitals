@@ -3,6 +3,13 @@ import userEvent from "@testing-library/user-event";
 import AppCard from "@/components/AppCard";
 import type { AppData, ApiError } from "@/types/app-data";
 
+jest.mock("@/components/SnapshotHistory", () => ({
+  __esModule: true,
+  default: ({ color }: { color?: string }) => (
+    <div data-testid="snapshot-history" data-color={color ?? ""} />
+  ),
+}));
+
 // Mock fetch globally for snapshot API calls.
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -105,6 +112,35 @@ describe("AppCard", () => {
     };
     render(<AppCard store="ios" data={paid} />);
     expect(screen.getByText("$2.99")).toBeInTheDocument();
+  });
+});
+
+describe("AppCard brandColor prop", () => {
+  it("passes brandColor prop through to SnapshotHistory", async () => {
+    await act(async () => {
+      render(
+        <AppCard
+          store="ios"
+          data={BASE_APP}
+          appId="570060128"
+          brandColor="#58CC02"
+        />
+      );
+    });
+    expect(screen.getByTestId("snapshot-history")).toHaveAttribute(
+      "data-color",
+      "#58CC02"
+    );
+  });
+
+  it("passes undefined brandColor as empty string to SnapshotHistory", async () => {
+    await act(async () => {
+      render(<AppCard store="ios" data={BASE_APP} appId="570060128" />);
+    });
+    expect(screen.getByTestId("snapshot-history")).toHaveAttribute(
+      "data-color",
+      ""
+    );
   });
 });
 

@@ -53,6 +53,7 @@ interface AppCardProps {
   data: AppData | ApiError | null;
   loading?: boolean;
   appId?: string;
+  brandColor?: string;
 }
 
 const STORE_LABELS = {
@@ -60,7 +61,7 @@ const STORE_LABELS = {
   android: "Google Play",
 };
 
-export default function AppCard({ store, data, loading, appId }: AppCardProps) {
+export default function AppCard({ store, data, loading, appId, brandColor }: AppCardProps) {
   const label = STORE_LABELS[store];
 
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -126,12 +127,6 @@ export default function AppCard({ store, data, loading, appId }: AppCardProps) {
       setSaving(false);
     }
   }
-
-  const brandColor =
-    (store === "ios" && appId === "829587759") ||
-    (store === "android" && appId === "com.babbel.mobile.android.en")
-      ? "#FF6700"
-      : undefined;
 
   if (loading) {
     return (

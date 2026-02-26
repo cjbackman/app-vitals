@@ -10,6 +10,12 @@ export interface PresetApp {
    * URL paths can change when an app updates its icon; update manually if broken.
    */
   iconUrl: string;
+  /**
+   * Optional brand hex color for sparkline strokes.
+   * Omit for apps where the default indigo is acceptable.
+   * Format: "#RRGGBB"
+   */
+  brandColor?: string;
 }
 
 export const PRESET_APPS: PresetApp[] = [
@@ -19,5 +25,14 @@ export const PRESET_APPS: PresetApp[] = [
     androidId: "com.babbel.mobile.android.en",
     iconUrl:
       "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/66/87/3f/66873f01-ba57-4e60-2885-2c03cf94720d/AppIcon-Default-0-0-1x_U007epad-0-1-0-0-85-220.png/100x100bb.jpg",
+    brandColor: "#FF6700",
+  },
+  {
+    name: "Duolingo",
+    iosId: "570060128",
+    androidId: "com.duolingo",
+    iconUrl:
+      "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/8c/2e/fc/8c2efc2c-1efc-50ea-a0b1-16ab54db9102/AppIcon-0-0-1x_U007epad-0-1-85-220.png/100x100bb.jpg",
+    brandColor: "#58CC02",
   },
 ];
