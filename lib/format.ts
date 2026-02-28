@@ -10,3 +10,13 @@ export function formatCount(n: number): string {
     return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
   return n.toLocaleString();
 }
+
+/**
+ * Format a delta using the same formatter as the series.
+ * Examples: +1200 with formatCount → "+1.2k", -300 with formatCount → "-300"
+ */
+export function formatDelta(delta: number, format: (n: number) => string): string {
+  if (delta === 0) return "0";
+  return (delta > 0 ? "+" : "-") + format(Math.abs(delta));
+}
+

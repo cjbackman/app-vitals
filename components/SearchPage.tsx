@@ -5,16 +5,12 @@ import Link from "next/link";
 import AppSearch, { type SearchParams } from "@/components/AppSearch";
 import AppPicker from "@/components/AppPicker";
 import AppCard from "@/components/AppCard";
+import CompetitorTable from "@/components/CompetitorTable";
 import { PRESET_APPS, type PresetApp } from "@/components/PresetApps";
 import type { AppData, ApiError } from "@/types/app-data";
+import { isApiError } from "@/types/app-data";
 
 interface Results {
-  ios: AppData | ApiError | null;
-  android: AppData | ApiError | null;
-}
-
-interface CompetitorResult {
-  preset: PresetApp;
   ios: AppData | ApiError | null;
   android: AppData | ApiError | null;
 }
@@ -29,7 +25,6 @@ export default function SearchPage() {
   const [androidId, setAndroidId] = useState(DEFAULT.androidId);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
-  const [competitorResults, setCompetitorResults] = useState<CompetitorResult[]>([]);
 
   // Abort any in-flight request when a new search starts.
   const abortRef = useRef<AbortController | null>(null);
@@ -45,16 +40,6 @@ export default function SearchPage() {
 
     setLoading(true);
     setResults(null);
-    setCompetitorResults([]);
-
-    // Re-derives from function args rather than selectedPreset — state may not have flushed yet
-    // when called from handleSelect. If a user manually types IDs that match a preset, competitors
-    // will still appear — intentional (simpler than tracking how the search was triggered).
-    const leadingPreset =
-      PRESET_APPS.find((p) => p.iosId === iosId && p.androidId === androidId) ?? null;
-    const competitors = leadingPreset
-      ? PRESET_APPS.filter((p) => p !== leadingPreset)
-      : [];
 
     async function fetchPair(pIosId: string, pAndroidId: string): Promise<Results> {
       const [ios, android] = await Promise.allSettled([
@@ -72,31 +57,12 @@ export default function SearchPage() {
     const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      // allSettled at the outer level: a single unexpected fetchPair rejection won't wipe
-      // all other results. Each competitor carries its preset inline to avoid index arithmetic.
-      const [leadingSettled, ...competitorSettled] = await Promise.allSettled([
-        fetchPair(iosId, androidId),
-        ...competitors.map(async (p): Promise<CompetitorResult> => ({
-          preset: p,
-          ...(await fetchPair(p.iosId, p.androidId)),
-        })),
-      ]);
+      const data = await fetchPair(iosId, androidId);
 
       // Ignore results if this request was superseded by a newer one.
       if (controller.signal.aborted) return;
 
-      setResults(
-        leadingSettled.status === "fulfilled"
-          ? leadingSettled.value
-          : { ios: SCRAPER_ERROR, android: SCRAPER_ERROR }
-      );
-      setCompetitorResults(
-        competitorSettled.map((settled, i) =>
-          settled.status === "fulfilled"
-            ? settled.value
-            : { preset: competitors[i]!, ios: SCRAPER_ERROR, android: SCRAPER_ERROR }
-        )
-      );
+      setResults(data);
     } finally {
       clearTimeout(timeoutId);
       if (!controller.signal.aborted) setLoading(false);
@@ -118,6 +84,16 @@ export default function SearchPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showResults = loading || results !== null;
+
+  // Derive clean AppData for the leading app (null when loading or errored).
+  const leadingIos =
+    results?.ios && !isApiError(results.ios) ? results.ios : null;
+  const leadingAndroid =
+    results?.android && !isApiError(results.android) ? results.android : null;
+
+  const competitors = selectedPreset
+    ? PRESET_APPS.filter((p) => p !== selectedPreset)
+    : [];
 
   return (
     <div className="space-y-8">
@@ -157,16 +133,27 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* Competitors — no loading prop: they resolve alongside the leading app */}
-      {competitorResults.map(({ preset, ios, android }) => (
-        <div key={preset.iosId} data-testid="competitor-section" className="space-y-3">
-          <p className="text-sm font-medium text-gray-500">{preset.name}</p>
+      {selectedPreset !== null && competitors.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-medium text-gray-500">Comparison</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <AppCard store="ios" data={ios} appId={preset.iosId} brandColor={preset.brandColor} />
-            <AppCard store="android" data={android} appId={preset.androidId} brandColor={preset.brandColor} />
+            <CompetitorTable
+              key={`ios-${selectedPreset.iosId}`}
+              store="ios"
+              leadingPreset={selectedPreset}
+              leadingData={leadingIos}
+              competitors={competitors}
+            />
+            <CompetitorTable
+              key={`android-${selectedPreset.androidId}`}
+              store="android"
+              leadingPreset={selectedPreset}
+              leadingData={leadingAndroid}
+              competitors={competitors}
+            />
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }
