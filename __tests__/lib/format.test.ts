@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { formatCount } from "@/lib/format";
+import { formatCount, formatDelta } from "@/lib/format";
 
 describe("formatCount", () => {
   it("returns plain number for values under 1000", () => {
@@ -29,5 +29,21 @@ describe("formatCount", () => {
     expect(formatCount(2_300_000)).toBe("2.3M");
     expect(formatCount(1_500_000)).toBe("1.5M");
     expect(formatCount(23_400_000)).toBe("23.4M");
+  });
+});
+
+describe("formatDelta", () => {
+  it("prefixes positive delta with +", () => {
+    expect(formatDelta(1200, formatCount)).toBe("+1.2k");
+    expect(formatDelta(0.1, (n) => n.toFixed(1))).toBe("+0.1");
+  });
+
+  it("prefixes negative delta with - and absolute value", () => {
+    expect(formatDelta(-300, formatCount)).toBe("-300");
+    expect(formatDelta(-0.2, (n) => n.toFixed(1))).toBe("-0.2");
+  });
+
+  it("returns 0 for zero delta", () => {
+    expect(formatDelta(0, formatCount)).toBe("0");
   });
 });
