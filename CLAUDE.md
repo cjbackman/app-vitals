@@ -5,8 +5,9 @@ A web app for fetching and analysing App Store and Google Play Store metadata �
 ## Stack
 
 - **Frontend/Backend:** Next.js (React) with App Router
-- **Styling:** TBD (decide when first UI is built)
-- **Testing:** Jest + React Testing Library (frontend), API route tests as needed
+- **Database:** Turso (libSQL) via `@libsql/client` — `file:` URL locally, `libsql://` in production
+- **Styling:** Tailwind CSS
+- **Testing:** Jest + React Testing Library
 
 ## Philosophy: Compounding Engineering
 
@@ -31,11 +32,15 @@ Each unit of work should make the next easier. Follow the workflow:
 
 ```
 app-vitals/
+├── __tests__/          # Jest tests (mirrors app/components/lib structure)
+├── app/                # Next.js App Router (pages + API routes)
+├── components/         # React UI components
+├── lib/                # Server-only business logic + DB access
+├── types/              # Shared TypeScript types
 ├── docs/
 │   ├── brainstorms/    # Output from /workflows:brainstorm
-│   ├── solutions/      # Documented solved problems (/workflows:compound)
-│   └── specs/          # Technical specifications
-├── src/                # Next.js app source (created when scaffolded)
+│   ├── plans/          # Output from /workflows:plan
+│   └── solutions/      # Documented solved problems (/workflows:compound)
 ├── CLAUDE.md           # This file
 ├── AGENTS.md           # Agent-specific instructions
 └── README.md
