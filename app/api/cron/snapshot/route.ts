@@ -20,10 +20,21 @@ export async function POST(request: NextRequest) {
   const results = await Promise.allSettled(
     PRESET_APPS.flatMap((preset) => [
       fetchIosApp(preset.iosId).then((data) =>
-        saveSnapshot("ios", preset.iosId, data.score, data.reviewCount, data.minInstalls)
+        saveSnapshot("ios", preset.iosId, {
+          score: data.score,
+          reviewCount: data.reviewCount,
+          version: data.version,
+        })
       ),
       fetchAndroidApp(preset.androidId).then((data) =>
-        saveSnapshot("android", preset.androidId, data.score, data.reviewCount, data.minInstalls)
+        saveSnapshot("android", preset.androidId, {
+          score: data.score,
+          reviewCount: data.reviewCount,
+          // "Varies with device" is an Android sentinel that means no single version —
+          // normalise to null so it never produces spurious isRelease flags.
+          version: data.version === "Varies with device" ? null : data.version,
+          minInstalls: data.minInstalls,
+        })
       ),
     ])
   );

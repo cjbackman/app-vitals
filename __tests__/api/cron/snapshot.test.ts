@@ -22,7 +22,7 @@ jest.mock("@/lib/snapshots", () => ({
 
 import { POST } from "@/app/api/cron/snapshot/route";
 
-const VALID_APP_DATA = { score: 4.5, reviewCount: 12000, minInstalls: undefined };
+const VALID_APP_DATA = { score: 4.5, reviewCount: 12000, version: "8.6.2", minInstalls: undefined };
 const SECRET = "test-secret";
 
 function makeRequest(authHeader?: string): NextRequest {
@@ -89,6 +89,15 @@ describe("POST /api/cron/snapshot", () => {
   it("calls saveSnapshot for each successful fetch", async () => {
     await POST(makeRequest(`Bearer ${SECRET}`));
     expect(mockSaveSnapshot).toHaveBeenCalledTimes(PRESET_COUNT * 2);
+  });
+
+  it("passes version to saveSnapshot as options object", async () => {
+    await POST(makeRequest(`Bearer ${SECRET}`));
+    expect(mockSaveSnapshot).toHaveBeenCalledWith(
+      expect.any(String), // store
+      expect.any(String), // appId
+      expect.objectContaining({ score: 4.5, reviewCount: 12000, version: "8.6.2" }),
+    );
   });
 
   // --- Partial failure ---

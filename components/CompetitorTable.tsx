@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { PresetApp } from "@/components/PresetApps";
-import type { AppData, ApiError } from "@/types/app-data";
+import type { AppData, ApiError, Snapshot } from "@/types/app-data";
 import { isApiError } from "@/types/app-data";
 import { formatCount, formatDelta } from "@/lib/format";
 
@@ -21,9 +21,25 @@ interface CompetitorTableProps {
   competitors: PresetApp[];
 }
 
+interface SnapshotDelta {
+  scoreDelta: number;
+  reviewDelta: number;
+}
+
 interface CompetitorRow {
   preset: PresetApp;
   data: AppData | ApiError | null; // null = loading or fetch failed
+  delta: SnapshotDelta | null;
+}
+
+function computeSnapshotDelta(snapshots: Snapshot[]): SnapshotDelta | null {
+  if (snapshots.length < 2) return null;
+  const curr = snapshots.at(-1)!;
+  const prev = snapshots.at(-2)!;
+  return {
+    scoreDelta: curr.score - prev.score,
+    reviewDelta: curr.reviewCount - prev.reviewCount,
+  };
 }
 
 function reviewRatio(competitor: number, leading: number): string {
@@ -34,6 +50,12 @@ function reviewRatio(competitor: number, leading: number): string {
   return `×${ratio.toFixed(2)}`;
 }
 
+function deltaColor(delta: number): string {
+  if (delta > 0) return "text-green-600";
+  if (delta < 0) return "text-red-400";
+  return "text-gray-400";
+}
+
 export default function CompetitorTable({
   store,
   leadingPreset,
@@ -41,43 +63,70 @@ export default function CompetitorTable({
   competitors,
 }: CompetitorTableProps) {
   const [rows, setRows] = useState<CompetitorRow[]>(() =>
-    competitors.map((preset) => ({ preset, data: null }))
+    competitors.map((preset) => ({ preset, data: null, delta: null }))
   );
+  const [leadingDelta, setLeadingDelta] = useState<SnapshotDelta | null>(null);
 
   // storeIdKey selects the correct preset ID field for this store (used in render and effect).
   const storeIdKey = store === "ios" ? "iosId" : "androidId";
 
   useEffect(() => {
-    setRows(competitors.map((preset) => ({ preset, data: null })));
+    setRows(competitors.map((preset) => ({ preset, data: null, delta: null })));
+    setLeadingDelta(null);
 
     const controller = new AbortController();
-    // Abort after 15 s to match the server's maxDuration safety net.
-    const timeoutId = setTimeout(() => controller.abort(), 15_000);
+    // Abort after 10 s, matching SearchPage's timeout.
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
     const apiRoute = store === "ios" ? "ios" : "android";
-    const idKey = store === "ios" ? "iosId" : "androidId";
 
-    Promise.allSettled(
-      competitors.map((preset) =>
-        fetch(`/api/${apiRoute}?appId=${encodeURIComponent(preset[idKey])}`, {
-          signal: controller.signal,
-        })
-          .then((r) => (r.ok ? (r.json() as Promise<AppData | ApiError>) : Promise.reject(r)))
-          .then((d) => ({ preset, data: d }))
-      )
-    ).then((results) => {
-      if (controller.signal.aborted) return;
-      setRows(
-        results.map((result, i) =>
-          result.status === "fulfilled"
-            ? result.value
-            : { preset: competitors[i]!, data: null }
-        )
-      );
-    });
+    const fetchSnaps = (appId: string): Promise<Snapshot[]> =>
+      fetch(`/api/snapshots?store=${store}&appId=${encodeURIComponent(appId)}`, {
+        signal: controller.signal,
+      }).then((r) => (r.ok ? (r.json() as Promise<Snapshot[]>) : Promise.resolve([])));
 
-    // competitors is intentionally omitted from deps: SearchPage remounts this component via
-    // a store+preset key prop when the selected preset changes, so each mount has a stable
-    // competitors value for its lifetime.
+    // App-data fetches: one per competitor.
+    const dataFetches = competitors.map((preset) =>
+      fetch(`/api/${apiRoute}?appId=${encodeURIComponent(preset[storeIdKey])}`, {
+        signal: controller.signal,
+      })
+        .then((r) => (r.ok ? (r.json() as Promise<AppData | ApiError>) : Promise.reject(r)))
+        .then((d) => ({ preset, data: d }))
+    );
+
+    // Leading snapshot fetched independently; competitor snapshots are 1:1 with dataFetches
+    // so snapshotResults[i] aligns with dataResults[i] — no index offset needed.
+    const leadingSnapshotFetch = fetchSnaps(leadingPreset[storeIdKey]);
+    const snapshotFetches = competitors.map((preset) => fetchSnaps(preset[storeIdKey]));
+
+    Promise.all([
+      Promise.allSettled(dataFetches),
+      Promise.allSettled(snapshotFetches),
+      leadingSnapshotFetch.then(computeSnapshotDelta).catch(() => null),
+    ])
+      .then(([dataResults, snapshotResults, newLeadingDelta]) => {
+        if (controller.signal.aborted) return;
+        clearTimeout(timeoutId);
+        setLeadingDelta(newLeadingDelta);
+        setRows(
+          dataResults.map((result, i) => {
+            const data =
+              result.status === "fulfilled" ? result.value.data : null;
+            const snaps =
+              snapshotResults[i]?.status === "fulfilled" ? snapshotResults[i].value : [];
+            return { preset: competitors[i]!, data, delta: computeSnapshotDelta(snaps) };
+          })
+        );
+      })
+      .catch(() => {
+        // Promise.allSettled cannot reject; this path is unreachable under normal conditions.
+        if (!controller.signal.aborted) {
+          setRows(competitors.map((preset) => ({ preset, data: null, delta: null })));
+        }
+      });
+
+    // competitors and leadingPreset are intentionally omitted from deps: SearchPage remounts
+    // this component via a store+preset key prop when the selected preset changes, so each
+    // mount has stable values for its lifetime.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => {
       clearTimeout(timeoutId);
@@ -95,8 +144,10 @@ export default function CompetitorTable({
           <tr className="border-b border-gray-100">
             <th className="text-left font-normal text-gray-400 pb-1.5" />
             <th className="text-right font-normal text-gray-400 pb-1.5">Rating</th>
+            <th className="text-right font-normal text-gray-300 pb-1.5 pl-1">Δ</th>
             <th className="text-right font-normal text-gray-300 pb-1.5 pl-1">vs you</th>
             <th className="text-right font-normal text-gray-400 pb-1.5 pl-3">Reviews</th>
+            <th className="text-right font-normal text-gray-300 pb-1.5 pl-1">Δ</th>
             <th className="text-right font-normal text-gray-300 pb-1.5 pl-1">vs you</th>
           </tr>
         </thead>
@@ -112,15 +163,37 @@ export default function CompetitorTable({
             <td className="py-1.5 text-right text-gray-900 font-medium tabular-nums">
               {leadingData ? leadingData.score.toFixed(1) : "—"}
             </td>
+            <td
+              className={`py-1.5 text-right tabular-nums pl-1 ${
+                leadingDelta
+                  ? deltaColor(leadingDelta.scoreDelta)
+                  : "text-gray-300"
+              }`}
+            >
+              {leadingDelta
+                ? formatDelta(leadingDelta.scoreDelta, (n) => n.toFixed(2))
+                : "—"}
+            </td>
             <td className="py-1.5 text-right text-gray-300 tabular-nums pl-1">—</td>
             <td className="py-1.5 text-right text-gray-900 font-medium tabular-nums pl-3">
               {leadingData ? formatCount(leadingData.reviewCount) : "—"}
+            </td>
+            <td
+              className={`py-1.5 text-right tabular-nums pl-1 ${
+                leadingDelta
+                  ? deltaColor(leadingDelta.reviewDelta)
+                  : "text-gray-300"
+              }`}
+            >
+              {leadingDelta
+                ? formatDelta(leadingDelta.reviewDelta, formatCount)
+                : "—"}
             </td>
             <td className="py-1.5 text-right text-gray-300 tabular-nums pl-1">—</td>
           </tr>
 
           {/* Competitor rows */}
-          {rows.map(({ preset, data }) => {
+          {rows.map(({ preset, data, delta }) => {
             const appData = data !== null && !isApiError(data) ? data : null;
             const score = appData?.score ?? null;
             const reviewCount = appData?.reviewCount ?? null;
@@ -156,6 +229,15 @@ export default function CompetitorTable({
                 </td>
                 <td
                   className={`py-1.5 text-right tabular-nums pl-1 ${
+                    delta ? deltaColor(delta.scoreDelta) : "text-gray-300"
+                  }`}
+                >
+                  {delta
+                    ? formatDelta(delta.scoreDelta, (n) => n.toFixed(2))
+                    : "—"}
+                </td>
+                <td
+                  className={`py-1.5 text-right tabular-nums pl-1 ${
                     ratingDeltaStr === "—"
                       ? "text-gray-300"
                       : ratingAhead
@@ -167,6 +249,15 @@ export default function CompetitorTable({
                 </td>
                 <td className="py-1.5 text-right text-gray-900 font-medium tabular-nums pl-3">
                   {reviewCount !== null ? formatCount(reviewCount) : "—"}
+                </td>
+                <td
+                  className={`py-1.5 text-right tabular-nums pl-1 ${
+                    delta ? deltaColor(delta.reviewDelta) : "text-gray-300"
+                  }`}
+                >
+                  {delta
+                    ? formatDelta(delta.reviewDelta, formatCount)
+                    : "—"}
                 </td>
                 <td
                   className={`py-1.5 text-right tabular-nums pl-1 ${
