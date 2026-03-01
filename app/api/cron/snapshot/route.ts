@@ -1,4 +1,5 @@
 import "server-only";
+import { timingSafeEqual } from "crypto";
 import { type NextRequest, NextResponse } from "next/server";
 import { PRESET_APPS } from "@/lib/preset-apps";
 import { fetchIosApp } from "@/lib/ios-store";
@@ -8,9 +9,15 @@ import { saveSnapshot } from "@/lib/snapshots";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  const provided = request.headers.get("authorization") ?? "";
+  if (!secret || !safeCompare(provided, `Bearer ${secret}`)) {
     return NextResponse.json(
       { error: "Unauthorized", code: "UNAUTHORIZED" },
       { status: 401 }
