@@ -33,6 +33,10 @@ export interface Snapshot {
   reviewCount: number;
   /** Android only; never present on iOS snapshots. */
   minInstalls?: number;
+  /** App version string at time of snapshot. null for rows saved before the version column was added. */
+  version: string | null;
+  /** True when this snapshot has a different version than the previous snapshot for the same app+store. Computed at read time. */
+  isRelease: boolean;
 }
 
 export interface ApiError {

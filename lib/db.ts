@@ -32,6 +32,22 @@ export function getDb(): Promise<Client> {
       "write"
     );
 
+    // ALTER TABLE has no IF NOT EXISTS guard in SQLite.
+    // Run each migration individually outside the batch so a failure does not
+    // poison _dbPromise — "duplicate column name" just means the column exists.
+    const columnMigrations = ["ALTER TABLE snapshots ADD COLUMN version TEXT"];
+    for (const sql of columnMigrations) {
+      try {
+        await client.execute(sql);
+      } catch (err) {
+        // Only swallow "duplicate column name" — the column already exists.
+        // Re-throw anything else (connection errors, syntax errors, etc.).
+        if (!(err instanceof Error && err.message.includes("duplicate column name"))) {
+          throw err;
+        }
+      }
+    }
+
     return client;
   })();
 

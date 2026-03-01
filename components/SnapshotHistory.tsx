@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Snapshot } from "@/types/app-data";
-import { formatCount } from "@/lib/format";
+import { buildAxisFormat, formatCount } from "@/lib/format";
 
 const WIDTH = 260;
 const HEIGHT = 80;
@@ -11,37 +11,6 @@ const STROKE_WIDTH = 1.5;
 const chartW = WIDTH - PAD_LEFT;
 const chartH = HEIGHT - PAD_Y * 2;
 
-/**
- * Returns a format function that guarantees min and max produce distinct labels.
- * When the base formatter collapses both to the same string, increases precision
- * until they differ (or falls back to raw toLocaleString).
- */
-function buildAxisFormat(
-  min: number,
-  max: number,
-  base: (n: number) => string
-): (n: number) => string {
-  if (min === max) return base;
-  if (base(min) !== base(max)) return base;
-
-  if (max < 100) {
-    // toFixed(2) is the maximum useful precision for ratings.
-    // Values indistinguishable at 2dp are noise — labelsDistinct will flatten them.
-    const fmt = (n: number) => n.toFixed(2);
-    if (fmt(min) !== fmt(max)) return fmt;
-  } else {
-    // Large count: increase decimal places in k/M notation
-    const divisor = max >= 1_000_000 ? 1_000_000 : 1_000;
-    const suffix = max >= 1_000_000 ? "M" : "k";
-    for (let d = 2; d <= 4; d++) {
-      const fmt = (n: number) =>
-        `${(n / divisor).toFixed(d).replace(/\.?0+$/, "")}${suffix}`;
-      if (fmt(min) !== fmt(max)) return fmt;
-    }
-    return (n: number) => n.toLocaleString();
-  }
-  return base;
-}
 
 function Sparkline({
   data,

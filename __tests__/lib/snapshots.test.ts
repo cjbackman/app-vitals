@@ -26,13 +26,18 @@ describe("saveSnapshot", () => {
   });
 
   it("returns a Snapshot with correct fields for iOS", async () => {
-    const snapshot = await saveSnapshot("ios", "com.spotify.client", 4.5, 12000);
+    const snapshot = await saveSnapshot("ios", "com.spotify.client", {
+      score: 4.5,
+      reviewCount: 12000,
+      version: "8.6.2",
+    });
 
     expect(snapshot).toMatchObject<Partial<Snapshot>>({
       store: "ios",
       appId: "com.spotify.client",
       score: 4.5,
       reviewCount: 12000,
+      version: "8.6.2",
       id: 42,
     });
     expect(typeof snapshot.savedAt).toBe("string");
@@ -40,21 +45,60 @@ describe("saveSnapshot", () => {
   });
 
   it("returns a Snapshot with minInstalls for Android", async () => {
-    const snapshot = await saveSnapshot("android", "com.spotify.music", 4.3, 23456789, 500000000);
+    const snapshot = await saveSnapshot("android", "com.spotify.music", {
+      score: 4.3,
+      reviewCount: 23456789,
+      version: "8.6.90.766",
+      minInstalls: 500000000,
+    });
 
     expect(snapshot.minInstalls).toBe(500000000);
   });
 
   it("omits minInstalls when not provided", async () => {
-    const snapshot = await saveSnapshot("ios", "com.spotify.client", 4.5, 12000);
+    const snapshot = await saveSnapshot("ios", "com.spotify.client", {
+      score: 4.5,
+      reviewCount: 12000,
+      version: "8.6.2",
+    });
 
     expect(snapshot.minInstalls).toBeUndefined();
   });
 
   it("handles undefined lastInsertRowid safely", async () => {
     mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined });
-    const snapshot = await saveSnapshot("ios", "com.spotify.client", 4.5, 12000);
+    const snapshot = await saveSnapshot("ios", "com.spotify.client", {
+      score: 4.5,
+      reviewCount: 12000,
+      version: "8.6.2",
+    });
     expect(snapshot.id).toBe(0);
+  });
+
+  it("isRelease is always false on save (no predecessor available)", async () => {
+    const snapshot = await saveSnapshot("ios", "com.spotify.client", {
+      score: 4.5,
+      reviewCount: 12000,
+      version: "8.6.2",
+    });
+    expect(snapshot.isRelease).toBe(false);
+  });
+
+  it("stores null when version is null (e.g. normalised Varies with device)", async () => {
+    const snapshot = await saveSnapshot("android", "com.example", {
+      score: 4.0,
+      reviewCount: 1000,
+      version: null,
+    });
+    expect(snapshot.version).toBeNull();
+  });
+
+  it("stores null when version is omitted", async () => {
+    const snapshot = await saveSnapshot("ios", "com.example", {
+      score: 4.0,
+      reviewCount: 1000,
+    });
+    expect(snapshot.version).toBeNull();
   });
 });
 
@@ -69,7 +113,7 @@ describe("getSnapshots", () => {
     expect(result).toEqual([]);
   });
 
-  it("maps DB rows to Snapshot objects", async () => {
+  it("maps DB rows to Snapshot objects including version and isRelease", async () => {
     mockExecute.mockResolvedValue({
       rows: [
         {
@@ -80,6 +124,7 @@ describe("getSnapshots", () => {
           score: 4.5,
           review_count: 12000,
           min_installs: null,
+          version: "8.6.0",
         },
       ],
     });
@@ -94,9 +139,32 @@ describe("getSnapshots", () => {
         savedAt: "2026-01-01T00:00:00.000Z",
         score: 4.5,
         reviewCount: 12000,
+        version: "8.6.0",
+        isRelease: false,
       },
     ]);
     expect(result[0]?.minInstalls).toBeUndefined();
+  });
+
+  it("returns version: null for rows saved before migration", async () => {
+    mockExecute.mockResolvedValue({
+      rows: [
+        {
+          id: 1,
+          store: "ios",
+          app_id: "com.example",
+          saved_at: "2026-01-01T00:00:00.000Z",
+          score: 4.0,
+          review_count: 1000,
+          min_installs: null,
+          version: null,
+        },
+      ],
+    });
+
+    const result = await getSnapshots("ios", "com.example");
+    expect(result[0]?.version).toBeNull();
+    expect(result[0]?.isRelease).toBe(false);
   });
 
   it("includes minInstalls when present in row", async () => {
@@ -110,12 +178,12 @@ describe("getSnapshots", () => {
           score: 4.3,
           review_count: 23456789,
           min_installs: 500000000,
+          version: "8.6.90.766",
         },
       ],
     });
 
     const result = await getSnapshots("android", "com.spotify.music");
-
     expect(result[0]?.minInstalls).toBe(500000000);
   });
 
@@ -130,6 +198,7 @@ describe("getSnapshots", () => {
           score: 4n,
           review_count: 1000n,
           min_installs: null,
+          version: "1.0",
         },
       ],
     });
@@ -139,5 +208,178 @@ describe("getSnapshots", () => {
     expect(typeof result[0]?.id).toBe("number");
     expect(typeof result[0]?.score).toBe("number");
     expect(typeof result[0]?.reviewCount).toBe("number");
+  });
+
+  describe("isRelease computation", () => {
+    it("is false for the first snapshot (no predecessor)", async () => {
+      mockExecute.mockResolvedValue({
+        rows: [
+          {
+            id: 1,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-01T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1000,
+            min_installs: null,
+            version: "1.0",
+          },
+        ],
+      });
+
+      const result = await getSnapshots("ios", "com.example");
+      expect(result[0]?.isRelease).toBe(false);
+    });
+
+    it("is true when consecutive versions differ and both are non-null", async () => {
+      mockExecute.mockResolvedValue({
+        rows: [
+          {
+            id: 1,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-01T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1000,
+            min_installs: null,
+            version: "1.0",
+          },
+          {
+            id: 2,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-08T00:00:00.000Z",
+            score: 4.6,
+            review_count: 1100,
+            min_installs: null,
+            version: "2.0",
+          },
+        ],
+      });
+
+      const result = await getSnapshots("ios", "com.example");
+      expect(result[0]?.isRelease).toBe(false); // first snapshot
+      expect(result[1]?.isRelease).toBe(true);  // version changed
+    });
+
+    it("is false when consecutive versions are the same", async () => {
+      mockExecute.mockResolvedValue({
+        rows: [
+          {
+            id: 1,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-01T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1000,
+            min_installs: null,
+            version: "1.0",
+          },
+          {
+            id: 2,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-08T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1100,
+            min_installs: null,
+            version: "1.0",
+          },
+        ],
+      });
+
+      const result = await getSnapshots("ios", "com.example");
+      expect(result[1]?.isRelease).toBe(false);
+    });
+
+    it("is false when current version is null (pre-migration row)", async () => {
+      mockExecute.mockResolvedValue({
+        rows: [
+          {
+            id: 1,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-01T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1000,
+            min_installs: null,
+            version: "1.0",
+          },
+          {
+            id: 2,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-08T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1100,
+            min_installs: null,
+            version: null, // old row
+          },
+        ],
+      });
+
+      const result = await getSnapshots("ios", "com.example");
+      expect(result[1]?.isRelease).toBe(false);
+    });
+
+    it("is false when previous version is null (prevents false positive on first post-migration row)", async () => {
+      mockExecute.mockResolvedValue({
+        rows: [
+          {
+            id: 1,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-01T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1000,
+            min_installs: null,
+            version: null, // pre-migration
+          },
+          {
+            id: 2,
+            store: "ios",
+            app_id: "com.example",
+            saved_at: "2026-01-08T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1100,
+            min_installs: null,
+            version: "2.0", // first post-migration version — NOT a release
+          },
+        ],
+      });
+
+      const result = await getSnapshots("ios", "com.example");
+      expect(result[1]?.isRelease).toBe(false);
+    });
+
+    it("is false for Android Varies-with-device (equal strings, not a release)", async () => {
+      mockExecute.mockResolvedValue({
+        rows: [
+          {
+            id: 1,
+            store: "android",
+            app_id: "com.example",
+            saved_at: "2026-01-01T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1000,
+            min_installs: null,
+            version: "Varies with device",
+          },
+          {
+            id: 2,
+            store: "android",
+            app_id: "com.example",
+            saved_at: "2026-01-08T00:00:00.000Z",
+            score: 4.5,
+            review_count: 1100,
+            min_installs: null,
+            version: "Varies with device",
+          },
+        ],
+      });
+
+      const result = await getSnapshots("android", "com.example");
+      expect(result[1]?.isRelease).toBe(false);
+    });
   });
 });

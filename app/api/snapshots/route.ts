@@ -30,7 +30,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const snapshots = await getSnapshots(store, appId);
-    return NextResponse.json(snapshots);
+    return NextResponse.json(snapshots, {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60",
+      },
+    });
   } catch {
     return NextResponse.json(
       { error: "Failed to retrieve snapshots", code: "SCRAPER_ERROR" },
