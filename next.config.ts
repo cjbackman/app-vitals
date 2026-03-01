@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["app-store-scraper", "google-play-scraper", "better-sqlite3"],
+  serverExternalPackages: ["app-store-scraper", "google-play-scraper"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.mzstatic.com" }, // Apple CDN
