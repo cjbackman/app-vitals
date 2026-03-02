@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import AppSearch, { type SearchParams } from "@/components/AppSearch";
 import AppPicker from "@/components/AppPicker";
 import AppCard from "@/components/AppCard";
 import CompetitorTable from "@/components/CompetitorTable";
@@ -32,7 +31,7 @@ export default function SearchPage() {
   const selectedPreset: PresetApp | null =
     PRESET_APPS.find((p) => p.iosId === iosId && p.androidId === androidId) ?? null;
 
-  async function handleSearch({ iosId, androidId }: SearchParams) {
+  async function handleSearch({ iosId, androidId }: { iosId: string; androidId: string }) {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -96,17 +95,7 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-3">
-        <AppPicker selectedPreset={selectedPreset} onSelect={handleSelect} />
-        <AppSearch
-          iosId={iosId}
-          androidId={androidId}
-          onIosIdChange={setIosId}
-          onAndroidIdChange={setAndroidId}
-          onSearch={handleSearch}
-          loading={loading}
-        />
-      </div>
+      <AppPicker selectedPreset={selectedPreset} onSelect={handleSelect} />
 
       {showResults && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

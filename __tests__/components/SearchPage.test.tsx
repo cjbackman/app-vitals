@@ -2,7 +2,6 @@
  * @jest-environment jsdom
  */
 import { render, screen, act, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import SearchPage from "@/components/SearchPage";
 import { PRESET_APPS } from "@/components/PresetApps";
 import type { AppData, ApiError } from "@/types/app-data";
@@ -23,21 +22,11 @@ jest.mock("next/image", () => ({
   },
 }));
 
-// Mock SnapshotHistory to capture the color prop without rendering SVGs.
+// Mock SnapshotHistory to avoid rendering SVGs.
 jest.mock("@/components/SnapshotHistory", () => ({
   __esModule: true,
-  default: ({
-    color,
-    store,
-  }: {
-    color?: string;
-    store: string;
-    snapshots: unknown[];
-  }) => (
-    <div
-      data-testid={`snapshot-history-${store}`}
-      data-color={color ?? ""}
-    />
+  default: ({ color }: { color?: string; snapshots: unknown[] }) => (
+    <div data-testid="snapshot-history" data-color={color ?? ""} />
   ),
 }));
 
@@ -81,19 +70,6 @@ const DUOLINGO_APP: AppData = {
   store: "ios",
 };
 
-const CUSTOM_APP: AppData = {
-  title: "Custom App",
-  icon: "https://example.com/custom.png",
-  score: 3.5,
-  reviewCount: 100,
-  version: "1.0",
-  developer: "Someone",
-  price: { type: "free" },
-  updatedAt: "2026-01-01T00:00:00Z",
-  storeUrl: "https://example.com",
-  store: "ios",
-};
-
 function ok(data: unknown): Promise<Response> {
   return Promise.resolve({ json: () => Promise.resolve(data), ok: true } as Response);
 }
@@ -110,7 +86,7 @@ function setupFetchByUrl(overrides: Record<string, AppData | ApiError> = {}) {
       return ok(overrides["duolingo-ios"] ?? DUOLINGO_APP);
     if (url.includes(`appId=${encodeURIComponent(duolingo.androidId)}`))
       return ok(overrides["duolingo-android"] ?? { ...DUOLINGO_APP, store: "android" });
-    return ok(CUSTOM_APP);
+    return ok(BABBEL_APP);
   });
 }
 
@@ -129,38 +105,5 @@ describe("SearchPage — comparison section", () => {
       expect(screen.getByTestId("competitor-table-ios")).toBeInTheDocument()
     );
     expect(screen.getByTestId("competitor-table-android")).toBeInTheDocument();
-  });
-
-  it("does not render CompetitorTable for non-preset searches", async () => {
-    setupFetchByUrl();
-
-    await act(async () => {
-      render(<SearchPage />);
-    });
-
-    // Wait for initial Babbel auto-search to settle
-    await waitFor(() =>
-      expect(screen.getAllByText("Babbel").length).toBeGreaterThan(0)
-    );
-
-    // Trigger a custom search with non-preset IDs
-    const iosInput = screen.getByLabelText("App Store ID");
-    const androidInput = screen.getByLabelText("Google Play Package");
-
-    await userEvent.clear(iosInput);
-    await userEvent.type(iosInput, "custom-ios-id");
-    await userEvent.clear(androidInput);
-    await userEvent.type(androidInput, "custom-android-id");
-
-    await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: "Look up" }));
-    });
-
-    await waitFor(() =>
-      expect(screen.getAllByText("Custom App").length).toBeGreaterThan(0)
-    );
-
-    expect(screen.queryByTestId("competitor-table-ios")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("competitor-table-android")).not.toBeInTheDocument();
   });
 });
