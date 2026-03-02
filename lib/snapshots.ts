@@ -9,15 +9,14 @@ export async function saveSnapshot(
     score: number;
     reviewCount: number;
     version?: string | null;
-    minInstalls?: number;
   },
 ): Promise<Snapshot> {
   const db = await getDb();
   const savedAt = new Date().toISOString();
   const version = opts.version ?? null;
   const result = await db.execute({
-    sql: "INSERT OR IGNORE INTO snapshots (store, app_id, saved_at, score, review_count, min_installs, version) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    args: [store, appId, savedAt, opts.score, opts.reviewCount, opts.minInstalls ?? null, version],
+    sql: "INSERT OR IGNORE INTO snapshots (store, app_id, saved_at, score, review_count, version) VALUES (?, ?, ?, ?, ?, ?)",
+    args: [store, appId, savedAt, opts.score, opts.reviewCount, version],
   });
   return {
     id: Number(result.lastInsertRowid ?? 0),
@@ -26,7 +25,6 @@ export async function saveSnapshot(
     savedAt,
     score: opts.score,
     reviewCount: opts.reviewCount,
-    minInstalls: opts.minInstalls,
     version,
     isRelease: false,
   };
@@ -38,8 +36,8 @@ export async function getSnapshots(
 ): Promise<Snapshot[]> {
   const db = await getDb();
   const result = await db.execute({
-    sql: `SELECT id, store, app_id, saved_at, score, review_count, min_installs, version
-          FROM (SELECT id, store, app_id, saved_at, score, review_count, min_installs, version
+    sql: `SELECT id, store, app_id, saved_at, score, review_count, version
+          FROM (SELECT id, store, app_id, saved_at, score, review_count, version
                 FROM snapshots WHERE store = ? AND app_id = ?
                 ORDER BY saved_at DESC LIMIT 30)
           ORDER BY saved_at ASC`,
@@ -53,7 +51,6 @@ export async function getSnapshots(
     savedAt: r.saved_at as string,
     score: Number(r.score),
     reviewCount: Number(r.review_count),
-    minInstalls: r.min_installs != null ? Number(r.min_installs) : undefined,
     version: r.version != null ? String(r.version) : null,
   }));
 

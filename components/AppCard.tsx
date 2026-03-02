@@ -170,7 +170,13 @@ export default function AppCard({ store, data, loading, appId, brandColor }: App
           <p className="text-gray-400">Price</p>
           <p className="font-medium text-gray-900">{formatPrice(data.price)}</p>
         </div>
-        <div className="col-span-2">
+        {data.minInstalls != null && (
+          <div>
+            <p className="text-gray-400">Installs</p>
+            <p className="font-medium text-gray-900">{formatCount(data.minInstalls)}+</p>
+          </div>
+        )}
+        <div>
           <p className="text-gray-400">Updated</p>
           <p className="font-medium text-gray-900">{formatDate(data.updatedAt)}</p>
         </div>
@@ -187,7 +193,7 @@ export default function AppCard({ store, data, loading, appId, brandColor }: App
         </a>
       )}
 
-      <SnapshotHistory snapshots={snapshots} store={store} color={brandColor} />
+      <SnapshotHistory snapshots={snapshots} color={brandColor} />
     </div>
   );
 }

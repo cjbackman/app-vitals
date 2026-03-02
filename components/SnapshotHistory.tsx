@@ -123,23 +123,17 @@ function Sparkline({
 
 interface SnapshotHistoryProps {
   snapshots: Snapshot[];
-  store: "ios" | "android";
   color?: string;
 }
 
 export default function SnapshotHistory({
   snapshots,
-  store,
   color,
 }: SnapshotHistoryProps) {
   if (snapshots.length === 0) return null;
 
   const ratings = snapshots.map((s) => s.score);
   const reviews = snapshots.map((s) => s.reviewCount);
-  // TypeScript cannot narrow optional properties through .filter(); cast is safe here.
-  const installs = snapshots
-    .filter((s) => s.minInstalls !== undefined)
-    .map((s) => s.minInstalls as number);
 
   return (
     <div className="pt-4 border-t border-gray-100">
@@ -150,9 +144,6 @@ export default function SnapshotHistory({
         {/* toFixed(2) as base: shows "4.70"/"4.73" for normal variation without needing adaptive path */}
         <Sparkline data={ratings} label="Rating" format={(n) => n.toFixed(2)} color={color} />
         <Sparkline data={reviews} label="Reviews" format={formatCount} color={color} />
-        {store === "android" && installs.length > 0 && (
-          <Sparkline data={installs} label="Installs" format={formatCount} color={color} />
-        )}
       </div>
     </div>
   );

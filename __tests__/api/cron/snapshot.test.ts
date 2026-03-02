@@ -22,7 +22,7 @@ jest.mock("@/lib/snapshots", () => ({
 
 import { POST } from "@/app/api/cron/snapshot/route";
 
-const VALID_APP_DATA = { score: 4.5, reviewCount: 12000, version: "8.6.2", minInstalls: undefined };
+const VALID_APP_DATA = { score: 4.5, reviewCount: 12000, version: "8.6.2" };
 const SECRET = "test-secret";
 
 function makeRequest(authHeader?: string): NextRequest {

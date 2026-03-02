@@ -40,7 +40,6 @@ export async function POST(request: NextRequest) {
           // "Varies with device" is an Android sentinel that means no single version —
           // normalise to null so it never produces spurious isRelease flags.
           version: data.version === "Varies with device" ? null : data.version,
-          minInstalls: data.minInstalls,
         })
       ),
     ])

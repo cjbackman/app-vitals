@@ -44,27 +44,6 @@ describe("saveSnapshot", () => {
     expect(snapshot.savedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it("returns a Snapshot with minInstalls for Android", async () => {
-    const snapshot = await saveSnapshot("android", "com.spotify.music", {
-      score: 4.3,
-      reviewCount: 23456789,
-      version: "8.6.90.766",
-      minInstalls: 500000000,
-    });
-
-    expect(snapshot.minInstalls).toBe(500000000);
-  });
-
-  it("omits minInstalls when not provided", async () => {
-    const snapshot = await saveSnapshot("ios", "com.spotify.client", {
-      score: 4.5,
-      reviewCount: 12000,
-      version: "8.6.2",
-    });
-
-    expect(snapshot.minInstalls).toBeUndefined();
-  });
-
   it("handles undefined lastInsertRowid safely", async () => {
     mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined });
     const snapshot = await saveSnapshot("ios", "com.spotify.client", {
@@ -123,7 +102,6 @@ describe("getSnapshots", () => {
           saved_at: "2026-01-01T00:00:00.000Z",
           score: 4.5,
           review_count: 12000,
-          min_installs: null,
           version: "8.6.0",
         },
       ],
@@ -143,7 +121,6 @@ describe("getSnapshots", () => {
         isRelease: false,
       },
     ]);
-    expect(result[0]?.minInstalls).toBeUndefined();
   });
 
   it("returns version: null for rows saved before migration", async () => {
@@ -156,7 +133,6 @@ describe("getSnapshots", () => {
           saved_at: "2026-01-01T00:00:00.000Z",
           score: 4.0,
           review_count: 1000,
-          min_installs: null,
           version: null,
         },
       ],
@@ -165,26 +141,6 @@ describe("getSnapshots", () => {
     const result = await getSnapshots("ios", "com.example");
     expect(result[0]?.version).toBeNull();
     expect(result[0]?.isRelease).toBe(false);
-  });
-
-  it("includes minInstalls when present in row", async () => {
-    mockExecute.mockResolvedValue({
-      rows: [
-        {
-          id: 2,
-          store: "android",
-          app_id: "com.spotify.music",
-          saved_at: "2026-01-01T00:00:00.000Z",
-          score: 4.3,
-          review_count: 23456789,
-          min_installs: 500000000,
-          version: "8.6.90.766",
-        },
-      ],
-    });
-
-    const result = await getSnapshots("android", "com.spotify.music");
-    expect(result[0]?.minInstalls).toBe(500000000);
   });
 
   it("coerces bigint row values to number", async () => {
@@ -197,7 +153,6 @@ describe("getSnapshots", () => {
           saved_at: "2026-01-01T00:00:00.000Z",
           score: 4n,
           review_count: 1000n,
-          min_installs: null,
           version: "1.0",
         },
       ],
@@ -221,7 +176,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-01T00:00:00.000Z",
             score: 4.5,
             review_count: 1000,
-            min_installs: null,
             version: "1.0",
           },
         ],
@@ -241,7 +195,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-01T00:00:00.000Z",
             score: 4.5,
             review_count: 1000,
-            min_installs: null,
             version: "1.0",
           },
           {
@@ -251,7 +204,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-08T00:00:00.000Z",
             score: 4.6,
             review_count: 1100,
-            min_installs: null,
             version: "2.0",
           },
         ],
@@ -272,7 +224,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-01T00:00:00.000Z",
             score: 4.5,
             review_count: 1000,
-            min_installs: null,
             version: "1.0",
           },
           {
@@ -282,7 +233,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-08T00:00:00.000Z",
             score: 4.5,
             review_count: 1100,
-            min_installs: null,
             version: "1.0",
           },
         ],
@@ -302,7 +252,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-01T00:00:00.000Z",
             score: 4.5,
             review_count: 1000,
-            min_installs: null,
             version: "1.0",
           },
           {
@@ -312,7 +261,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-08T00:00:00.000Z",
             score: 4.5,
             review_count: 1100,
-            min_installs: null,
             version: null, // old row
           },
         ],
@@ -332,7 +280,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-01T00:00:00.000Z",
             score: 4.5,
             review_count: 1000,
-            min_installs: null,
             version: null, // pre-migration
           },
           {
@@ -342,7 +289,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-08T00:00:00.000Z",
             score: 4.5,
             review_count: 1100,
-            min_installs: null,
             version: "2.0", // first post-migration version — NOT a release
           },
         ],
@@ -362,7 +308,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-01T00:00:00.000Z",
             score: 4.5,
             review_count: 1000,
-            min_installs: null,
             version: "Varies with device",
           },
           {
@@ -372,7 +317,6 @@ describe("getSnapshots", () => {
             saved_at: "2026-01-08T00:00:00.000Z",
             score: 4.5,
             review_count: 1100,
-            min_installs: null,
             version: "Varies with device",
           },
         ],

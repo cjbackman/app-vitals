@@ -18,52 +18,40 @@ const ANDROID_SNAPSHOT: Snapshot = {
   savedAt: "2026-01-01T00:00:00.000Z",
   score: 4.3,
   reviewCount: 23456789,
-  minInstalls: 500000000,
 };
 
 describe("SnapshotHistory", () => {
   it("renders nothing when snapshots array is empty", () => {
     const { container } = render(
-      <SnapshotHistory snapshots={[]} store="ios" />
+      <SnapshotHistory snapshots={[]} />
     );
     expect(container.firstChild).toBeNull();
   });
 
   it("renders Rating and Reviews sparklines for iOS", () => {
-    render(<SnapshotHistory snapshots={[IOS_SNAPSHOT]} store="ios" />);
+    render(<SnapshotHistory snapshots={[IOS_SNAPSHOT]} />);
 
     expect(screen.getByLabelText("Rating trend")).toBeInTheDocument();
     expect(screen.getByLabelText("Reviews trend")).toBeInTheDocument();
   });
 
-  it("does not render Installs sparkline for iOS", () => {
-    render(<SnapshotHistory snapshots={[IOS_SNAPSHOT]} store="ios" />);
+  it("does not render Installs sparkline for Android either", () => {
+    render(<SnapshotHistory snapshots={[ANDROID_SNAPSHOT]} />);
 
     expect(screen.queryByLabelText("Installs trend")).not.toBeInTheDocument();
-  });
-
-  it("renders Rating, Reviews, and Installs sparklines for Android", () => {
-    render(
-      <SnapshotHistory snapshots={[ANDROID_SNAPSHOT]} store="android" />
-    );
-
-    expect(screen.getByLabelText("Rating trend")).toBeInTheDocument();
-    expect(screen.getByLabelText("Reviews trend")).toBeInTheDocument();
-    expect(screen.getByLabelText("Installs trend")).toBeInTheDocument();
   });
 
   it("shows snapshot count in header", () => {
     render(
       <SnapshotHistory
         snapshots={[IOS_SNAPSHOT, { ...IOS_SNAPSHOT, id: 3 }]}
-        store="ios"
       />
     );
     expect(screen.getByText(/2 snapshots/)).toBeInTheDocument();
   });
 
   it("shows singular 'snapshot' for count of 1", () => {
-    render(<SnapshotHistory snapshots={[IOS_SNAPSHOT]} store="ios" />);
+    render(<SnapshotHistory snapshots={[IOS_SNAPSHOT]} />);
     expect(screen.getByText(/1 snapshot/)).toBeInTheDocument();
     expect(screen.queryByText(/1 snapshots/)).not.toBeInTheDocument();
   });
@@ -72,7 +60,6 @@ describe("SnapshotHistory", () => {
     const { container } = render(
       <SnapshotHistory
         snapshots={[IOS_SNAPSHOT, { ...IOS_SNAPSHOT, id: 2, score: 4.8 }]}
-        store="ios"
         color="#FF6700"
       />
     );
@@ -90,7 +77,6 @@ describe("SnapshotHistory", () => {
           { ...IOS_SNAPSHOT, score: 4.68 },
           { ...IOS_SNAPSHOT, id: 2, score: 4.73 },
         ]}
-        store="ios"
       />
     );
     const texts = Array.from(container.querySelectorAll("text")).map(
@@ -102,7 +88,7 @@ describe("SnapshotHistory", () => {
 
   it("suppresses y-axis labels for a single snapshot", () => {
     const { container } = render(
-      <SnapshotHistory snapshots={[IOS_SNAPSHOT]} store="ios" />
+      <SnapshotHistory snapshots={[IOS_SNAPSHOT]} />
     );
     expect(container.querySelectorAll("text")).toHaveLength(0);
   });
@@ -111,7 +97,6 @@ describe("SnapshotHistory", () => {
     const { container } = render(
       <SnapshotHistory
         snapshots={[IOS_SNAPSHOT, { ...IOS_SNAPSHOT, id: 2 }]}
-        store="ios"
       />
     );
     // Two sparklines (Rating, Reviews), each with one centered label = 2 text nodes
@@ -128,7 +113,6 @@ describe("SnapshotHistory", () => {
           { ...IOS_SNAPSHOT, id: 2, score: 4.7 + tinyDiff },
           { ...IOS_SNAPSHOT, id: 3, score: 4.7 },
         ]}
-        store="ios"
       />
     );
     // Rating sparkline should show one centered label (flat), not two identical labels
@@ -146,7 +130,6 @@ describe("SnapshotHistory", () => {
           { ...IOS_SNAPSHOT, score: 4.0, reviewCount: 700_000 },
           { ...IOS_SNAPSHOT, id: 2, score: 4.8, reviewCount: 750_000 },
         ]}
-        store="ios"
       />
     );
     // Two sparklines × 2 labels each = 4 text nodes

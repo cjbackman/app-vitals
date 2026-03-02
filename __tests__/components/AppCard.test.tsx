@@ -112,6 +112,22 @@ describe("AppCard", () => {
     render(<AppCard store="ios" data={paid} />);
     expect(screen.getByText("$2.99")).toBeInTheDocument();
   });
+
+  it("renders Installs field for Android data with minInstalls", () => {
+    const android: AppData = {
+      ...BASE_APP,
+      store: "android",
+      minInstalls: 1_000_000,
+    };
+    render(<AppCard store="android" data={android} />);
+    expect(screen.getByText("Installs")).toBeInTheDocument();
+    expect(screen.getByText("1M+")).toBeInTheDocument();
+  });
+
+  it("does not render Installs field for iOS data without minInstalls", () => {
+    render(<AppCard store="ios" data={BASE_APP} />);
+    expect(screen.queryByText("Installs")).not.toBeInTheDocument();
+  });
 });
 
 describe("AppCard brandColor prop", () => {
