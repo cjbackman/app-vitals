@@ -1,0 +1,41 @@
+name: Weekly Snapshot
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger snapshot
+        env:
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          RESPONSE=$(curl --silent --max-time 90 --write-out "\n%{http_code}" \
+            -X POST "${DEPLOY_URL}/api/cron/snapshot" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Endpoint returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          FAILED=$(echo "$BODY" | jq -r '.failed // 0')
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::error::$FAILED snapshot(s) failed"
+            echo "$BODY" | jq -r '.errors[]' 2>/dev/null
+            exit 1
+          fi
+
+          echo "All snapshots saved successfully."
