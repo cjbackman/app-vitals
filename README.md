@@ -18,7 +18,7 @@ The local dev database (`file:./data/snapshots.db`) is created automatically on 
 
 - Search any app by ID across App Store and Google Play
 - Competitor comparison table (preset apps: Babbel, Duolingo)
-- Weekly automated snapshots via cron job
+- Weekly automated snapshots via GitHub Actions
 - Snapshot history sparklines with brand colours
 
 ## Stack
