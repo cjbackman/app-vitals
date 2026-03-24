@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Trigger snapshot
         env:
-          DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
+          DEPLOY_URL: ${{ vars.DEPLOY_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           RESPONSE=$(curl --silent --max-time 90 --write-out "\n%{http_code}" \
