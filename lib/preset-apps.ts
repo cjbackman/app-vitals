@@ -35,4 +35,20 @@ export const PRESET_APPS: PresetApp[] = [
       "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/8c/2e/fc/8c2efc2c-1efc-50ea-a0b1-16ab54db9102/AppIcon-0-0-1x_U007epad-0-1-85-220.png/100x100bb.jpg",
     brandColor: "#58CC02",
   },
+  {
+    name: "Learna AI",
+    iosId: "6478287397",
+    androidId: "com.codeway.aitutor",
+    iconUrl:
+      "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/ac/ad/8f/acad8f73-9bb3-7826-c3c3-6fc7510bc322/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/100x100bb.jpg",
+    brandColor: "#2B8CE3",
+  },
+  {
+    name: "Speak",
+    iosId: "1286609883",
+    androidId: "com.selabs.speak",
+    iconUrl:
+      "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/36/a7/12/36a712a9-44d0-a96d-ea64-5ae345b37a19/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/100x100bb.jpg",
+    brandColor: "#2D3FE0",
+  },
 ];
